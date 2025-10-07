@@ -26,10 +26,6 @@ A modern, AI-powered dashboard for small retail businesses that provides prescri
 
 ### 1. Clone or Navigate to Project Directory
 
-```bash
-cd c:\Users\mkara\Desktop\MVP
-```
-
 ### 2. Backend Setup
 
 ```bash
