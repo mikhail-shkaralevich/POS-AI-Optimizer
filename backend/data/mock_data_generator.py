@@ -157,7 +157,7 @@ if __name__ == "__main__":
     print(f"Average transaction value: ${total_revenue/num_transactions:.2f}")
     
     # Write to file
-    with open("data/mock_data.json", "w") as f:
+    with open("mock_data.json", "w") as f:
         json.dump(data, f, indent=2)
     
-    print("\nMock data saved to data/mock_data.json")
+    print("\nMock data saved to mock_data.json")
