@@ -115,6 +115,15 @@ The application uses mock transaction data to simulate a cafe's POS system. The 
 - Items sold with prices
 - Customer IDs (for tracking new vs. returning customers)
 
+**Note:** The mock data generators are configured to automatically create data for the last 30 days from the current date. Running the generators will always produce fresh, up-to-date data.
+
+To regenerate mock data:
+```bash
+cd backend/data
+python mock_data_generator.py      # Regenerates transaction data
+python sensor_data_generator.py    # Regenerates LiDAR sensor data
+```
+
 ## AI Logic
 
 For this MVP, the "AI" features include:

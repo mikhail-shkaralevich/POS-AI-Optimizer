@@ -1,6 +1,7 @@
 """
 Script to generate realistic mock data for the retail dashboard.
 Run this to regenerate mock_data.json with larger values.
+Data is always generated for the last 30 days from today.
 """
 import json
 import random
@@ -8,9 +9,11 @@ from datetime import datetime, timedelta
 
 # Configuration
 TARGET_REVENUE = 40000
-START_DATE = datetime(2025, 9, 10)
-END_DATE = datetime(2025, 10, 7)
-NUM_DAYS = (END_DATE - START_DATE).days + 1
+
+# Dynamic date calculation - always last 30 days
+END_DATE = datetime.now().replace(hour=23, minute=59, second=59, microsecond=0)
+START_DATE = (END_DATE - timedelta(days=29)).replace(hour=0, minute=0, second=0, microsecond=0)
+NUM_DAYS = 30
 
 # Products with realistic pricing
 PRODUCTS = {

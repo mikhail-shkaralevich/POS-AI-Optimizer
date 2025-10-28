@@ -1,15 +1,16 @@
 """
 Script to generate realistic LiDAR sensor mock data for foot traffic analytics.
 This simulates data from a LiDAR sensor tracking people entering the store.
+Data is always generated for the last 30 days from today.
 """
 import json
 import random
 from datetime import datetime, timedelta
 
-# Configuration
-START_DATE = datetime(2025, 9, 10)
-END_DATE = datetime(2025, 10, 7)
-NUM_DAYS = (END_DATE - START_DATE).days + 1
+# Dynamic date calculation - always last 30 days
+END_DATE = datetime.now().replace(hour=23, minute=59, second=59, microsecond=0)
+START_DATE = (END_DATE - timedelta(days=29)).replace(hour=0, minute=0, second=0, microsecond=0)
+NUM_DAYS = 30
 
 # Foot traffic patterns (realistic for a cafe)
 # Peak hours: 7-9 AM (morning rush), 12-2 PM (lunch), 3-4 PM (afternoon break)
