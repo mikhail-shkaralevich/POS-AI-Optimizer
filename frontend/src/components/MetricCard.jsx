@@ -70,6 +70,24 @@ function MetricCard({ title, value, trend, tooltip, type }) {
               <Area type="monotone" dataKey="value" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.3} />
             </AreaChart>
           </ResponsiveContainer>
+        ) : type === 'footTraffic' ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData}>
+              <XAxis dataKey="date" hide />
+              <YAxis hide />
+              <Tooltip />
+              <Area type="monotone" dataKey="value" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.3} />
+            </AreaChart>
+          </ResponsiveContainer>
+        ) : type === 'conversion' ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData}>
+              <XAxis dataKey="date" hide />
+              <YAxis hide />
+              <Tooltip />
+              <Line type="monotone" dataKey="value" stroke="#ec4899" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData}>

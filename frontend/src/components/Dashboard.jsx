@@ -64,8 +64,8 @@ function Dashboard() {
       <Header businessName={businessName} />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Top 3 Metrics Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Top 5 Metrics Section - Updated to include Foot Traffic and Conversion Rate */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
           <MetricCard
             title="Total Revenue (Last 30 Days)"
             value={`$${metrics?.revenue?.total?.toLocaleString() || '0'}`}
@@ -86,6 +86,20 @@ function Dashboard() {
             trend={metrics?.customers?.trend || []}
             tooltip="Number of new customers versus returning customers in the last 30 days"
             type="customers"
+          />
+          <MetricCard
+            title="Foot Traffic (Last 30 Days)"
+            value={metrics?.foot_traffic?.total?.toLocaleString() || '0'}
+            trend={metrics?.foot_traffic?.trend || []}
+            tooltip="Estimated number of visitors to your store in the last 30 days (tracked by LiDAR sensor)"
+            type="footTraffic"
+          />
+          <MetricCard
+            title="Conversion Rate"
+            value={`${metrics?.conversion_rate?.rate || 0}%`}
+            trend={metrics?.conversion_rate?.trend || []}
+            tooltip="Percentage of visitors who make a purchase (transactions ÷ foot traffic × 100)"
+            type="conversion"
           />
         </div>
 

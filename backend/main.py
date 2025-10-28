@@ -30,7 +30,14 @@ def load_mock_data():
     with open(data_path, "r") as f:
         return json.load(f)
 
+def load_sensor_data():
+    """Load sensor foot traffic data from JSON file."""
+    data_path = os.path.join(os.path.dirname(__file__), "data", "sensor_mock_data.json")
+    with open(data_path, "r") as f:
+        return json.load(f)
+
 mock_data = load_mock_data()
+sensor_data = load_sensor_data()
 
 # Pydantic models for request/response
 class ChatMessage(BaseModel):
@@ -198,9 +205,10 @@ def generate_insights(transactions: List[Dict]) -> List[str]:
 def generate_comparisons() -> List[str]:
     """Generate comparison insights (simulated benchmarks)."""
     return [
-        "Your foot traffic is 15% higher than the average for cafes in your area",
+        "Your foot traffic (tracked by LiDAR) is 12% higher than the average for cafes in your area",
         "Your average transaction value is $0.50 below the sector benchmark. Consider upselling side items",
-        "Customer retention rate is 8% above industry average - excellent work!"
+        "Customer retention rate is 8% above industry average - excellent work!",
+        "Your 40.8% conversion rate exceeds the typical cafe benchmark of 35-38%"
     ]
 
 def generate_prescriptions(transactions: List[Dict]) -> List[Dict[str, str]]:
@@ -275,6 +283,78 @@ def get_busiest_day(transactions: List[Dict]) -> str:
         return day_counts.most_common(1)[0][0]
     return "N/A"
 
+def calculate_foot_traffic(days: int = 30) -> Dict[str, Any]:
+    """Calculate foot traffic metrics from LiDAR sensor data."""
+    cutoff_date = datetime.now() - timedelta(days=days)
+    daily_traffic = defaultdict(int)
+    
+    # Count entries from sensor data
+    for entry in sensor_data["entries"]:
+        entry_date = datetime.fromisoformat(entry["timestamp"])
+        if entry_date >= cutoff_date:
+            day_key = entry_date.strftime("%Y-%m-%d")
+            daily_traffic[day_key] += 1
+    
+    total_traffic = sum(daily_traffic.values())
+    
+    # Calculate daily trend
+    trend_data = [
+        {"date": date, "value": count}
+        for date, count in sorted(daily_traffic.items())
+    ]
+    
+    return {
+        "total": total_traffic,
+        "trend": trend_data,
+        "average_daily": round(total_traffic / days, 1) if days > 0 else 0
+    }
+
+def calculate_conversion_rate(transactions: List[Dict], days: int = 30) -> Dict[str, Any]:
+    """Calculate conversion rate (transactions / foot traffic from sensor)."""
+    cutoff_date = datetime.now() - timedelta(days=days)
+    
+    # Get daily transaction counts
+    daily_transactions = defaultdict(int)
+    for txn in transactions:
+        txn_date = datetime.fromisoformat(txn["timestamp"])
+        if txn_date >= cutoff_date:
+            day_key = txn_date.strftime("%Y-%m-%d")
+            daily_transactions[day_key] += 1
+    
+    # Get daily foot traffic from sensor
+    daily_traffic = defaultdict(int)
+    for entry in sensor_data["entries"]:
+        entry_date = datetime.fromisoformat(entry["timestamp"])
+        if entry_date >= cutoff_date:
+            day_key = entry_date.strftime("%Y-%m-%d")
+            daily_traffic[day_key] += 1
+    
+    # Calculate daily conversion rates
+    trend_data = []
+    total_transactions = 0
+    total_traffic = 0
+    
+    all_dates = sorted(set(list(daily_transactions.keys()) + list(daily_traffic.keys())))
+    
+    for date in all_dates:
+        transactions_count = daily_transactions.get(date, 0)
+        traffic_count = daily_traffic.get(date, 0)
+        
+        conversion = (transactions_count / traffic_count * 100) if traffic_count > 0 else 0
+        trend_data.append({"date": date, "value": round(conversion, 1)})
+        
+        total_transactions += transactions_count
+        total_traffic += traffic_count
+    
+    overall_conversion = (total_transactions / total_traffic * 100) if total_traffic > 0 else 0
+    
+    return {
+        "rate": round(overall_conversion, 1),
+        "trend": trend_data,
+        "transactions": total_transactions,
+        "foot_traffic": total_traffic
+    }
+
 # API Endpoints
 @app.get("/")
 def read_root():
@@ -294,11 +374,15 @@ def get_metrics():
     revenue_data = calculate_revenue(transactions)
     atv_data = calculate_atv(transactions)
     customer_data = calculate_customer_metrics(transactions)
+    foot_traffic_data = calculate_foot_traffic()  # No transactions parameter
+    conversion_data = calculate_conversion_rate(transactions)
     
     return {
         "revenue": revenue_data,
         "atv": atv_data,
         "customers": customer_data,
+        "foot_traffic": foot_traffic_data,
+        "conversion_rate": conversion_data,
         "top_selling_item": get_top_selling_item(transactions),
         "retention_rate": calculate_retention_rate(transactions),
         "busiest_day": get_busiest_day(transactions)
@@ -359,6 +443,14 @@ def chat(message: ChatMessage):
     elif "customer" in query and "new" in query:
         customer_data = calculate_customer_metrics(transactions)
         return ChatResponse(response=f"In the last 30 days, you had {customer_data['new']} new customers and {customer_data['returning']} returning customers.")
+    
+    elif "foot traffic" in query or "visitors" in query or "people visiting" in query:
+        traffic_data = calculate_foot_traffic()
+        return ChatResponse(response=f"Your foot traffic for the last 30 days is {traffic_data['total']:,} visitors (tracked by LiDAR sensor), with an average of {traffic_data['average_daily']:.0f} visitors per day.")
+    
+    elif "conversion" in query or "conversion rate" in query:
+        conversion_data = calculate_conversion_rate(transactions)
+        return ChatResponse(response=f"Your conversion rate is {conversion_data['rate']}%, meaning {conversion_data['rate']}% of visitors make a purchase. This is calculated from {conversion_data['transactions']} transactions out of {conversion_data['foot_traffic']} estimated visitors.")
     
     elif "hello" in query or "hi" in query or "hey" in query:
         return ChatResponse(response="Hello! I'm your AI business consultant. I can help you understand your sales data, identify trends, and provide recommendations. Try asking me about your revenue, best-selling items, or for marketing suggestions!")
