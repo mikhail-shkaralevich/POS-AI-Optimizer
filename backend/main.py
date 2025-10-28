@@ -272,6 +272,10 @@ def generate_prescriptions(transactions: List[Dict]) -> List[Dict[str, str]]:
         if 14 <= hour <= 17:  # 2 PM to 5 PM
             afternoon_revenue += txn_total
     
+    # Calculate conversion rate for the prescription
+    conversion_data = calculate_conversion_rate(transactions)
+    conversion_rate = conversion_data['rate']
+    
     prescriptions = []
     
     # Afternoon sales recommendation
@@ -293,6 +297,18 @@ def generate_prescriptions(transactions: List[Dict]) -> List[Dict[str, str]]:
         "type": "OPPORTUNITY",
         "text": "Your 'Cold Brew' is a top seller. Consider marketing it on social media to attract new customers"
     })
+    
+    # Conversion rate optimization
+    if conversion_rate < 45:
+        prescriptions.append({
+            "type": "ACTION",
+            "text": f"Your {conversion_rate}% conversion rate can be improved. Train staff on greeting customers within 30 seconds of entry to boost conversions by 5-8%"
+        })
+    else:
+        prescriptions.append({
+            "type": "OPPORTUNITY",
+            "text": f"Excellent {conversion_rate}% conversion rate! Consider implementing a loyalty program to retain these converting customers"
+        })
     
     return prescriptions
 
