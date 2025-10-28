@@ -9,6 +9,7 @@ A modern, AI-powered dashboard for small retail businesses that provides prescri
 - **Comparative Analytics**: Benchmark against similar businesses
 - **Prescriptive Recommendations**: Receive AI-driven suggestions to improve performance
 - **AI Consultant Chatbot**: Ask questions about your business data in natural language
+- **Pricing Page**: Professional pricing tiers with hardware options (LiDAR sensor)
 
 ## Tech Stack
 
@@ -89,11 +90,15 @@ MVP/
 │   ├── main.py              # FastAPI server
 │   ├── requirements.txt     # Python dependencies
 │   └── data/
-│       └── mock_data.json   # Mock transaction data
+│       ├── mock_data.json          # Mock transaction data
+│       └── mock_data_generator.py  # Script to regenerate mock data
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx          # Main application component
+│   │   ├── App.jsx          # Main application component with routing
 │   │   ├── components/      # React components
+│   │   │   ├── Dashboard.jsx        # Main dashboard view
+│   │   │   ├── PricingPage.jsx      # Pricing tiers page
+│   │   │   └── ...                  # Other components
 │   │   ├── main.jsx         # Entry point
 │   │   └── index.css        # Global styles
 │   ├── index.html

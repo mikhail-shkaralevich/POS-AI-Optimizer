@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 
 const PricingPage = () => {
-  const [billingCycle, setBillingCycle] = useState('monthly'); // 'monthly' or 'annual'
   const [hardwareOption, setHardwareOption] = useState('purchase'); // 'purchase' or 'lease'
 
   const tiers = [
@@ -64,15 +63,6 @@ const PricingPage = () => {
     }
   ];
 
-  const calculateSavings = (tier) => {
-    if (billingCycle === 'annual' && tier.price.monthly > 0) {
-      const monthlyCost = tier.price.monthly * 12;
-      const savings = monthlyCost - tier.price.annual;
-      return savings;
-    }
-    return 0;
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
@@ -84,33 +74,6 @@ const PricingPage = () => {
           <p className="text-xl text-gray-600 mb-8">
             Democratizing retail analytics for small businesses
           </p>
-
-          {/* Billing Toggle */}
-          <div className="flex items-center justify-center gap-4 mb-8">
-            <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-gray-900' : 'text-gray-500'}`}>
-              Monthly
-            </span>
-            <button
-              onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'annual' : 'monthly')}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                billingCycle === 'annual' ? 'bg-blue-600' : 'bg-gray-300'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  billingCycle === 'annual' ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-            <span className={`text-sm font-medium ${billingCycle === 'annual' ? 'text-gray-900' : 'text-gray-500'}`}>
-              Annual
-            </span>
-            {billingCycle === 'annual' && (
-              <span className="ml-2 text-sm font-semibold text-green-600">
-                Save up to 2 months! 🎉
-              </span>
-            )}
-          </div>
         </div>
 
         {/* Hardware Section */}
@@ -198,7 +161,7 @@ const PricingPage = () => {
               </div>
               <div className="mb-3">
                 <span className="text-3xl font-bold text-gray-900">$50</span>
-                <span className="text-gray-600 ml-2">/month × 8 months</span>
+                <span className="text-gray-600 ml-2">/month × 12 months</span>
               </div>
               <ul className="space-y-2 text-sm text-gray-700">
                 <li className="flex items-start">
@@ -211,7 +174,7 @@ const PricingPage = () => {
                   <svg className="w-5 h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  Own after 8 months
+                  Own after 12 months
                 </li>
                 <li className="flex items-start">
                   <svg className="w-5 h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -254,22 +217,21 @@ const PricingPage = () => {
                     </div>
                   ) : (
                     <div>
-                      <div className="flex items-baseline">
+                      <div className="flex items-baseline mb-2">
                         <span className="text-4xl font-bold text-gray-900">
-                          ${billingCycle === 'monthly' ? tier.price.monthly : Math.round(tier.price.annual / 12)}
+                          ${tier.price.monthly}
                         </span>
                         <span className="text-gray-600 ml-2">/month</span>
                       </div>
-                      {billingCycle === 'annual' && (
-                        <div className="mt-2">
-                          <span className="text-sm text-gray-600">
-                            ${tier.price.annual}/year
-                          </span>
-                          <span className="ml-2 text-sm font-semibold text-green-600">
-                            Save ${calculateSavings(tier)}!
-                          </span>
-                        </div>
-                      )}
+                      <div className="text-sm">
+                        <span className="text-gray-600">or </span>
+                        <span className="font-semibold text-gray-900">
+                          ${tier.price.annual}/year
+                        </span>
+                        <span className="ml-2 text-green-600 font-semibold">
+                          (Save ${tier.price.monthly * 12 - tier.price.annual}!)
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>
