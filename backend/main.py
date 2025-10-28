@@ -11,6 +11,8 @@ from datetime import datetime, timedelta
 from collections import defaultdict, Counter
 import json
 import os
+import subprocess
+import sys
 
 app = FastAPI(title="Retail Dashboard API")
 
@@ -22,6 +24,50 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Auto-generate fresh data on startup
+def generate_mock_data():
+    """Run data generation scripts to create fresh data."""
+    data_dir = os.path.join(os.path.dirname(__file__), "data")
+    
+    print("[INFO] Generating fresh mock data...")
+    
+    try:
+        # Generate transaction data
+        print("  -> Generating transaction data...")
+        result = subprocess.run(
+            [sys.executable, "mock_data_generator.py"],
+            cwd=data_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if result.returncode == 0:
+            print("  [OK] Transaction data generated")
+        else:
+            print(f"  [WARN] Transaction data generation failed: {result.stderr}")
+        
+        # Generate sensor data
+        print("  -> Generating sensor data...")
+        result = subprocess.run(
+            [sys.executable, "sensor_data_generator.py"],
+            cwd=data_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if result.returncode == 0:
+            print("  [OK] Sensor data generated")
+        else:
+            print(f"  [WARN] Sensor data generation failed: {result.stderr}")
+        
+        print("[OK] Mock data generation complete!\n")
+        
+    except Exception as e:
+        print(f"[ERROR] Error generating mock data: {e}\n")
+
+# Generate data on startup
+generate_mock_data()
 
 # Load mock data
 def load_mock_data():

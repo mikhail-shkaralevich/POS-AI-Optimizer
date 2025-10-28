@@ -68,6 +68,8 @@ python main.py
 
 The backend will run on `http://localhost:8000`
 
+**Note:** The server automatically generates fresh mock data (for the last 30 days) every time it starts, so your data is always up-to-date!
+
 #### Start the Frontend Development Server (Terminal 2)
 
 ```bash

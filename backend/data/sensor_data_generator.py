@@ -133,10 +133,10 @@ def main():
     with open(output_path, "w") as f:
         json.dump(sensor_data, f, indent=2)
     
-    print(f"✅ Generated {sensor_data['summary']['total_entries']:,} sensor readings")
-    print(f"📊 Date range: {sensor_data['date_range']['start_date']} to {sensor_data['date_range']['end_date']}")
-    print(f"📈 Average daily traffic: {sensor_data['summary']['average_daily_traffic']} visitors")
-    print(f"💾 Saved to {output_path}")
+    print(f"[OK] Generated {sensor_data['summary']['total_entries']:,} sensor readings")
+    print(f"[OK] Date range: {sensor_data['date_range']['start_date']} to {sensor_data['date_range']['end_date']}")
+    print(f"[OK] Average daily traffic: {sensor_data['summary']['average_daily_traffic']} visitors")
+    print(f"[OK] Saved to {output_path}")
 
 if __name__ == "__main__":
     main()
