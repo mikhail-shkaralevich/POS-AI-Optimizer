@@ -341,7 +341,7 @@ def generate_prescriptions(transactions: List[Dict]) -> List[Dict[str, str]]:
         
         hour = txn_date.hour
         try:
-            txn_total = float(str(txn.get("gross_sales", "0")).replace("$", "").strip())
+            txn_total = float(str(txn.get("total", "0")).replace("$", "").strip())
         except:
             txn_total = 0
         
@@ -349,6 +349,16 @@ def generate_prescriptions(transactions: List[Dict]) -> List[Dict[str, str]]:
         
         if 14 <= hour <= 17:  # 2 PM to 5 PM
             afternoon_revenue += txn_total
+    
+    # Get top selling items
+    item_counts = Counter()
+    for txn in transactions:
+        item_name = txn.get("item_name", "")
+        quantity = txn.get("quantity", 1)
+        if item_name and item_name.lower() != "bag fee":
+            item_counts[item_name] += quantity
+    
+    top_items = item_counts.most_common(3)
     
     # Calculate conversion rate for the prescription
     conversion_data = calculate_conversion_rate(transactions)
@@ -361,21 +371,29 @@ def generate_prescriptions(transactions: List[Dict]) -> List[Dict[str, str]]:
     if afternoon_percentage < 20:
         prescriptions.append({
             "type": "ACTION",
-            "text": "Offer a 'Happy Hour' discount on pastries from 3 PM to 5 PM on weekdays to increase afternoon sales"
+            "text": "Offer a limited-time afternoon discount (2-5 PM) on accessories and stickers to boost slower hours and increase foot traffic"
         })
     
-    # Bundle recommendation
-    prescriptions.append({
-        "type": "SUGGESTION",
-        "text": "Create a 'Coffee & Pastry' bundle to increase the Average Transaction Value by $1.50-$2.00"
-    })
+    # Bundle recommendation based on actual products
+    if len(top_items) >= 2:
+        item1, item2 = top_items[0][0], top_items[1][0]
+        prescriptions.append({
+            "type": "SUGGESTION",
+            "text": f"Create a bundle deal: Pair '{item1}' with '{item2}' at 10% off to increase Average Transaction Value"
+        })
+    else:
+        prescriptions.append({
+            "type": "SUGGESTION",
+            "text": "Create accessory bundles (e.g., Hair Claw + Sticker + Keychain) to increase Average Transaction Value"
+        })
     
-    # Top seller marketing
-    top_item = get_top_selling_item(transactions)
-    prescriptions.append({
-        "type": "OPPORTUNITY",
-        "text": f"Your '{top_item}' is a top seller. Consider marketing it on social media to attract new customers"
-    })
+    # Top seller marketing with actual product
+    if top_items:
+        top_item = top_items[0][0]
+        prescriptions.append({
+            "type": "OPPORTUNITY",
+            "text": f"Your '{top_item}' is a top seller. Feature it prominently in window displays and Instagram posts to attract new customers"
+        })
     
     # Conversion rate optimization
     if conversion_rate < 45:
@@ -495,11 +513,16 @@ def calculate_conversion_rate(transactions: List[Dict], days: int = 120) -> Dict
         transactions_count = len(daily_transactions.get(date, set()))
         traffic_count = daily_traffic.get(date, 0)
         
-        conversion = (transactions_count / traffic_count * 100) if traffic_count > 0 else 0
-        trend_data.append({"date": date, "value": round(conversion, 1)})
-        
-        total_transactions += transactions_count
-        total_traffic += traffic_count
+        # Only calculate conversion if traffic > 0 and transactions <= traffic (valid data)
+        if traffic_count > 0 and transactions_count <= traffic_count:
+            conversion = (transactions_count / traffic_count * 100)
+            trend_data.append({"date": date, "value": round(conversion, 1)})
+            total_transactions += transactions_count
+            total_traffic += traffic_count
+        elif traffic_count > 0:
+            # Skip days where sensor data appears incomplete (transactions > traffic)
+            # Don't add to trend or totals
+            pass
     
     overall_conversion = (total_transactions / total_traffic * 100) if total_traffic > 0 else 0
     
