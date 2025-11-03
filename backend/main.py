@@ -3,7 +3,7 @@ FastAPI backend for the Retail Dashboard MVP.
 Serves analytics data and handles AI chatbot queries.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any
@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict, Counter
 import json
 import os
+import shutil
 
 app = FastAPI(title="Retail Dashboard API")
 
@@ -648,6 +649,54 @@ def chat(message: ChatMessage):
     
     else:
         return ChatResponse(response="I'm not sure I understand that question. Try asking me about your revenue, best-selling products, customer retention, or marketing ideas. You can also type 'help' to see what I can do!")
+
+@app.post("/api/upload/shopify")
+async def upload_shopify_data(file: UploadFile = File(...)):
+    """Upload Shopify CSV data file."""
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="File must be a CSV file")
+    
+    try:
+        # Save the uploaded file
+        data_path = os.path.join(os.path.dirname(__file__), "data", "shopify_data.csv")
+        with open(data_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Reload the data
+        global mock_data
+        mock_data = load_shopify_data()
+        
+        return {
+            "success": True,
+            "message": f"Shopify data uploaded successfully",
+            "records": len(mock_data["transactions"])
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")
+
+@app.post("/api/upload/sensor")
+async def upload_sensor_data(file: UploadFile = File(...)):
+    """Upload sensor JSON data file."""
+    if not file.filename.endswith('.json'):
+        raise HTTPException(status_code=400, detail="File must be a JSON file")
+    
+    try:
+        # Save the uploaded file
+        data_path = os.path.join(os.path.dirname(__file__), "data", "sensor_data.json")
+        with open(data_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Reload the data
+        global sensor_data
+        sensor_data = load_sensor_data()
+        
+        return {
+            "success": True,
+            "message": f"Sensor data uploaded successfully",
+            "entries": len(sensor_data["entries"])
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

@@ -7,6 +7,7 @@ import ComparisonsCard from './ComparisonsCard';
 import PrescriptionsCard from './PrescriptionsCard';
 import OtherMetricsCard from './OtherMetricsCard';
 import ChatBot from './ChatBot';
+import DataUpload from './DataUpload';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -64,6 +65,9 @@ function Dashboard() {
       <Header businessName={businessName} />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Data Upload Section */}
+        <DataUpload onUploadSuccess={fetchData} />
+
         {/* Data Range Display */}
         {metrics?.date_range && (
           <div className="mb-6 text-center">
