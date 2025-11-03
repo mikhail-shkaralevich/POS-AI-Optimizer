@@ -11,8 +11,6 @@ from datetime import datetime, timedelta
 from collections import defaultdict, Counter
 import json
 import os
-import subprocess
-import sys
 
 app = FastAPI(title="Retail Dashboard API")
 
@@ -25,64 +23,104 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Auto-generate fresh data on startup
-def generate_mock_data():
-    """Run data generation scripts to create fresh data."""
-    data_dir = os.path.join(os.path.dirname(__file__), "data")
+# Load real data from Shopify and sensor
+def load_shopify_data():
+    """Load transaction data from Shopify CSV file."""
+    import csv
     
-    print("[INFO] Generating fresh mock data...")
+    data_path = os.path.join(os.path.dirname(__file__), "data", "shopify_data.csv")
+    transactions = []
+    
+    print("[INFO] Loading Shopify data...")
     
     try:
-        # Generate transaction data
-        print("  -> Generating transaction data...")
-        result = subprocess.run(
-            [sys.executable, "mock_data_generator.py"],
-            cwd=data_dir,
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
-        if result.returncode == 0:
-            print("  [OK] Transaction data generated")
-        else:
-            print(f"  [WARN] Transaction data generation failed: {result.stderr}")
+        with open(data_path, "r", encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                # Parse Square/Shopify data format
+                try:
+                    # Combine date and time
+                    date_str = row.get("Date", "")
+                    time_str = row.get("Time", "")
+                    
+                    if date_str and time_str:
+                        # Parse date format: 7/31/25
+                        month, day, year = date_str.split("/")
+                        year = f"20{year}" if len(year) == 2 else year
+                        
+                        timestamp = f"{year}-{month.zfill(2)}-{day.zfill(2)} {time_str}"
+                    else:
+                        continue
+                    
+                    # Parse amounts (remove $ and commas)
+                    gross_sales = row.get("Gross Sales", "$0.00").replace("$", "").replace(",", "").strip()
+                    net_sales = row.get("Net Sales", "$0.00").replace("$", "").replace(",", "").strip()
+                    tax = row.get("Tax", "$0.00").replace("$", "").replace(",", "").strip()
+                    
+                    transaction = {
+                        "transaction_id": row.get("Transaction ID", ""),
+                        "timestamp": timestamp,
+                        "customer_id": row.get("Customer ID", "GUEST") or "GUEST",
+                        "customer_name": row.get("Customer Name", ""),
+                        "total": float(gross_sales) if gross_sales else 0.0,
+                        "net_sales": float(net_sales) if net_sales else 0.0,
+                        "tax": float(tax) if tax else 0.0,
+                        "item_name": row.get("Item", ""),
+                        "category": row.get("Category", ""),
+                        "quantity": int(row.get("Qty", 0)) if row.get("Qty") else 0,
+                        "location": row.get("Location", ""),
+                        "device": row.get("Device Name", ""),
+                    }
+                    transactions.append(transaction)
+                except Exception as e:
+                    # Skip rows with parsing errors
+                    continue
         
-        # Generate sensor data
-        print("  -> Generating sensor data...")
-        result = subprocess.run(
-            [sys.executable, "sensor_data_generator.py"],
-            cwd=data_dir,
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
-        if result.returncode == 0:
-            print("  [OK] Sensor data generated")
-        else:
-            print(f"  [WARN] Sensor data generation failed: {result.stderr}")
-        
-        print("[OK] Mock data generation complete!\n")
-        
+        print(f"  [OK] Loaded {len(transactions)} transaction records from Shopify")
+        return {
+            "business_name": "Aloha Kira",
+            "transactions": transactions
+        }
     except Exception as e:
-        print(f"[ERROR] Error generating mock data: {e}\n")
-
-# Generate data on startup
-generate_mock_data()
-
-# Load mock data
-def load_mock_data():
-    """Load transaction data from JSON file."""
-    data_path = os.path.join(os.path.dirname(__file__), "data", "mock_data.json")
-    with open(data_path, "r") as f:
-        return json.load(f)
+        print(f"  [ERROR] Failed to load Shopify data: {e}")
+        return {"business_name": "Your Retail Store", "transactions": []}
 
 def load_sensor_data():
     """Load sensor foot traffic data from JSON file."""
-    data_path = os.path.join(os.path.dirname(__file__), "data", "sensor_mock_data.json")
-    with open(data_path, "r") as f:
-        return json.load(f)
+    data_path = os.path.join(os.path.dirname(__file__), "data", "sensor_data.json")
+    
+    print("[INFO] Loading sensor data...")
+    
+    try:
+        with open(data_path, "r", encoding='utf-8') as f:
+            raw_data = json.load(f)
+            
+            # Parse the MongoDB-style format
+            entries = []
+            for entry in raw_data:
+                try:
+                    # Extract timestamp from MongoDB format
+                    if isinstance(entry.get("timestamp"), dict):
+                        timestamp_str = entry["timestamp"]["$date"]
+                    else:
+                        timestamp_str = entry.get("timestamp", "")
+                    
+                    entries.append({
+                        "timestamp": timestamp_str,
+                        "device_id": entry.get("device_id", ""),
+                        "direction": entry.get("direction", 1),  # 1=in, 0=out
+                    })
+                except:
+                    continue
+            
+            print(f"  [OK] Loaded {len(entries)} sensor readings")
+            return {"entries": entries}
+    except Exception as e:
+        print(f"  [ERROR] Failed to load sensor data: {e}")
+        return {"entries": []}
 
-mock_data = load_mock_data()
+# Load real data
+mock_data = load_shopify_data()
 sensor_data = load_sensor_data()
 
 # Pydantic models for request/response
@@ -93,17 +131,22 @@ class ChatResponse(BaseModel):
     response: str
 
 # Helper functions for analytics calculations
-def calculate_revenue(transactions: List[Dict], days: int = 30) -> Dict[str, Any]:
+def calculate_revenue(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
     """Calculate total revenue and daily breakdown."""
     cutoff_date = datetime.now() - timedelta(days=days)
     daily_revenue = defaultdict(float)
     total = 0
     
     for txn in transactions:
-        txn_date = datetime.fromisoformat(txn["timestamp"])
+        try:
+            # Parse timestamp format: YYYY-MM-DD HH:MM:SS
+            txn_date = datetime.strptime(txn["timestamp"], "%Y-%m-%d %H:%M:%S")
+        except:
+            continue
+        
         if txn_date >= cutoff_date:
             day_key = txn_date.strftime("%Y-%m-%d")
-            txn_total = sum(item["price"] for item in txn["items"])
+            txn_total = txn.get("total", 0)
             daily_revenue[day_key] += txn_total
             total += txn_total
     
@@ -117,17 +160,31 @@ def calculate_revenue(transactions: List[Dict], days: int = 30) -> Dict[str, Any
         "average_daily": round(total / days, 2) if days > 0 else 0
     }
 
-def calculate_atv(transactions: List[Dict], days: int = 30) -> Dict[str, Any]:
+def calculate_atv(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
     """Calculate Average Transaction Value."""
     cutoff_date = datetime.now() - timedelta(days=days)
     daily_atv = defaultdict(lambda: {"total": 0, "count": 0})
     
+    # Group by transaction ID to avoid counting line items multiple times
+    unique_transactions = defaultdict(lambda: {"total": 0, "date": None})
+    
     for txn in transactions:
-        txn_date = datetime.fromisoformat(txn["timestamp"])
+        try:
+            txn_date = datetime.strptime(txn["timestamp"], "%Y-%m-%d %H:%M:%S")
+        except:
+            continue
+        
         if txn_date >= cutoff_date:
-            day_key = txn_date.strftime("%Y-%m-%d")
-            txn_total = sum(item["price"] for item in txn["items"])
-            daily_atv[day_key]["total"] += txn_total
+            txn_id = txn["transaction_id"]
+            if unique_transactions[txn_id]["date"] is None:
+                unique_transactions[txn_id]["date"] = txn_date
+            unique_transactions[txn_id]["total"] = txn.get("total", 0)
+    
+    # Calculate daily ATV
+    for txn_id, data in unique_transactions.items():
+        if data["date"]:
+            day_key = data["date"].strftime("%Y-%m-%d")
+            daily_atv[day_key]["total"] += data["total"]
             daily_atv[day_key]["count"] += 1
     
     # Calculate ATV for each day
@@ -149,7 +206,7 @@ def calculate_atv(transactions: List[Dict], days: int = 30) -> Dict[str, Any]:
         "trend": trend_data
     }
 
-def calculate_customer_metrics(transactions: List[Dict], days: int = 30) -> Dict[str, Any]:
+def calculate_customer_metrics(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
     """Calculate new vs returning customers."""
     cutoff_date = datetime.now() - timedelta(days=days)
     customer_first_seen = {}
@@ -158,17 +215,32 @@ def calculate_customer_metrics(transactions: List[Dict], days: int = 30) -> Dict
     # First pass: find first transaction for each customer
     for txn in sorted(transactions, key=lambda x: x["timestamp"]):
         customer_id = txn["customer_id"]
-        txn_date = datetime.fromisoformat(txn["timestamp"])
+        try:
+            txn_date = datetime.strptime(txn["timestamp"], "%Y-%m-%d %H:%M:%S")
+        except:
+            continue
         
         if customer_id not in customer_first_seen:
             customer_first_seen[customer_id] = txn_date
     
-    # Second pass: categorize transactions
+    # Second pass: categorize transactions (unique customers per day)
+    processed_customers = defaultdict(set)
+    
     for txn in transactions:
-        txn_date = datetime.fromisoformat(txn["timestamp"])
+        try:
+            txn_date = datetime.strptime(txn["timestamp"], "%Y-%m-%d %H:%M:%S")
+        except:
+            continue
+        
         if txn_date >= cutoff_date:
             day_key = txn_date.strftime("%Y-%m-%d")
             customer_id = txn["customer_id"]
+            
+            # Skip if already counted this customer today
+            if customer_id in processed_customers[day_key]:
+                continue
+            processed_customers[day_key].add(customer_id)
+            
             first_seen = customer_first_seen[customer_id]
             
             if first_seen >= cutoff_date and first_seen.strftime("%Y-%m-%d") == day_key:
@@ -194,35 +266,35 @@ def calculate_customer_metrics(transactions: List[Dict], days: int = 30) -> Dict
 
 def generate_insights(transactions: List[Dict]) -> List[str]:
     """Generate AI insights from transaction data."""
-    # Analyze busiest time slots (by day of week and hour)
+    # Analyze busiest time slots
     day_hour_counts = defaultdict(int)
-    item_pairs = defaultdict(int)
-    day_counts = defaultdict(int)
+    item_counts = defaultdict(int)
     new_customers_by_day = defaultdict(int)
     customer_first_seen = {}
     
     for txn in transactions:
-        txn_date = datetime.fromisoformat(txn["timestamp"])
+        try:
+            txn_date = datetime.strptime(txn["timestamp"], "%Y-%m-%d %H:%M:%S")
+        except:
+            continue
+        
         day_name = txn_date.strftime("%A")
         hour = txn_date.hour
         
         day_hour_counts[(day_name, hour)] += 1
-        day_counts[day_name] += 1
         
-        # Track new customers by day of week
+        # Track popular items
+        item_name = txn.get("item_name", "")
+        quantity = txn.get("quantity", 1)
+        if item_name:
+            item_counts[item_name] += quantity
+        
+        # Track new customers by day
         customer_id = txn["customer_id"]
         if customer_id not in customer_first_seen:
             customer_first_seen[customer_id] = txn_date
             first_day = txn_date.strftime("%A")
             new_customers_by_day[first_day] += 1
-        
-        # Analyze item pairs
-        items = [item["name"] for item in txn["items"]]
-        if len(items) > 1:
-            for i, item1 in enumerate(items):
-                for item2 in items[i+1:]:
-                    pair = tuple(sorted([item1, item2]))
-                    item_pairs[pair] += 1
     
     insights = []
     
@@ -233,13 +305,11 @@ def generate_insights(transactions: List[Dict]) -> List[str]:
         hour_range = f"{hour}:00 - {hour+1}:00"
         insights.append(f"Your busiest time slot is {day}s from {hour_range}")
     
-    # Item correlation
-    if item_pairs:
-        top_pair = max(item_pairs.items(), key=lambda x: x[1])
-        item1, item2 = top_pair[0]
-        count = top_pair[1]
-        # Calculate correlation percentage (simplified)
-        insights.append(f"Customers who purchase '{item1}' often also buy '{item2}' (appears in {count} transactions together)")
+    # Top selling items
+    if item_counts:
+        top_items = sorted(item_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+        top_item_names = ", ".join([f"'{name}'" for name, _ in top_items])
+        insights.append(f"Your top selling items are: {top_item_names}")
     
     # New customer pattern
     if new_customers_by_day:
@@ -264,9 +334,17 @@ def generate_prescriptions(transactions: List[Dict]) -> List[Dict[str, str]]:
     total_revenue = 0
     
     for txn in transactions:
-        txn_date = datetime.fromisoformat(txn["timestamp"])
+        try:
+            txn_date = datetime.strptime(txn["timestamp"], "%Y-%m-%d %H:%M:%S")
+        except:
+            continue
+        
         hour = txn_date.hour
-        txn_total = sum(item["price"] for item in txn["items"])
+        try:
+            txn_total = float(str(txn.get("gross_sales", "0")).replace("$", "").strip())
+        except:
+            txn_total = 0
+        
         total_revenue += txn_total
         
         if 14 <= hour <= 17:  # 2 PM to 5 PM
@@ -293,9 +371,10 @@ def generate_prescriptions(transactions: List[Dict]) -> List[Dict[str, str]]:
     })
     
     # Top seller marketing
+    top_item = get_top_selling_item(transactions)
     prescriptions.append({
         "type": "OPPORTUNITY",
-        "text": "Your 'Cold Brew' is a top seller. Consider marketing it on social media to attract new customers"
+        "text": f"Your '{top_item}' is a top seller. Consider marketing it on social media to attract new customers"
     })
     
     # Conversion rate optimization
@@ -317,8 +396,10 @@ def get_top_selling_item(transactions: List[Dict]) -> str:
     item_counts = Counter()
     
     for txn in transactions:
-        for item in txn["items"]:
-            item_counts[item["name"]] += 1
+        item_name = txn.get("item_name", "")
+        quantity = txn.get("quantity", 1)
+        if item_name:
+            item_counts[item_name] += quantity
     
     if item_counts:
         return item_counts.most_common(1)[0][0]
@@ -345,15 +426,19 @@ def get_busiest_day(transactions: List[Dict]) -> str:
         return day_counts.most_common(1)[0][0]
     return "N/A"
 
-def calculate_foot_traffic(days: int = 30) -> Dict[str, Any]:
+def calculate_foot_traffic(days: int = 120) -> Dict[str, Any]:
     """Calculate foot traffic metrics from LiDAR sensor data."""
-    cutoff_date = datetime.now() - timedelta(days=days)
+    cutoff_date = datetime.now().replace(tzinfo=None) - timedelta(days=days)
     daily_traffic = defaultdict(int)
     
-    # Count entries from sensor data
+    # Count entries from sensor data (direction=1 means entry)
     for entry in sensor_data["entries"]:
-        entry_date = datetime.fromisoformat(entry["timestamp"])
-        if entry_date >= cutoff_date:
+        try:
+            entry_date = datetime.fromisoformat(entry["timestamp"]).replace(tzinfo=None)
+        except:
+            continue
+        
+        if entry_date >= cutoff_date and entry.get("direction") == 1:
             day_key = entry_date.strftime("%Y-%m-%d")
             daily_traffic[day_key] += 1
     
@@ -371,23 +456,31 @@ def calculate_foot_traffic(days: int = 30) -> Dict[str, Any]:
         "average_daily": round(total_traffic / days, 1) if days > 0 else 0
     }
 
-def calculate_conversion_rate(transactions: List[Dict], days: int = 30) -> Dict[str, Any]:
+def calculate_conversion_rate(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
     """Calculate conversion rate (transactions / foot traffic from sensor)."""
-    cutoff_date = datetime.now() - timedelta(days=days)
+    cutoff_date = datetime.now().replace(tzinfo=None) - timedelta(days=days)
     
-    # Get daily transaction counts
-    daily_transactions = defaultdict(int)
+    # Get unique transactions by transaction_id per day
+    daily_transactions = defaultdict(set)
     for txn in transactions:
-        txn_date = datetime.fromisoformat(txn["timestamp"])
+        try:
+            txn_date = datetime.strptime(txn["timestamp"], "%Y-%m-%d %H:%M:%S")
+        except:
+            continue
+        
         if txn_date >= cutoff_date:
             day_key = txn_date.strftime("%Y-%m-%d")
-            daily_transactions[day_key] += 1
+            daily_transactions[day_key].add(txn.get("transaction_id", ""))
     
-    # Get daily foot traffic from sensor
+    # Get daily foot traffic from sensor (entries only)
     daily_traffic = defaultdict(int)
     for entry in sensor_data["entries"]:
-        entry_date = datetime.fromisoformat(entry["timestamp"])
-        if entry_date >= cutoff_date:
+        try:
+            entry_date = datetime.fromisoformat(entry["timestamp"]).replace(tzinfo=None)
+        except:
+            continue
+        
+        if entry_date >= cutoff_date and entry.get("direction") == 1:
             day_key = entry_date.strftime("%Y-%m-%d")
             daily_traffic[day_key] += 1
     
@@ -399,7 +492,7 @@ def calculate_conversion_rate(transactions: List[Dict], days: int = 30) -> Dict[
     all_dates = sorted(set(list(daily_transactions.keys()) + list(daily_traffic.keys())))
     
     for date in all_dates:
-        transactions_count = daily_transactions.get(date, 0)
+        transactions_count = len(daily_transactions.get(date, set()))
         traffic_count = daily_traffic.get(date, 0)
         
         conversion = (transactions_count / traffic_count * 100) if traffic_count > 0 else 0
@@ -433,6 +526,15 @@ def get_metrics():
     """Get all dashboard metrics."""
     transactions = mock_data["transactions"]
     
+    # Calculate date range of the data
+    if transactions:
+        dates = [datetime.strptime(t["timestamp"], "%Y-%m-%d %H:%M:%S") for t in transactions]
+        min_date = min(dates).strftime("%B %d, %Y")
+        max_date = max(dates).strftime("%B %d, %Y")
+        data_range = f"{min_date} - {max_date}"
+    else:
+        data_range = "No data available"
+    
     revenue_data = calculate_revenue(transactions)
     atv_data = calculate_atv(transactions)
     customer_data = calculate_customer_metrics(transactions)
@@ -440,6 +542,7 @@ def get_metrics():
     conversion_data = calculate_conversion_rate(transactions)
     
     return {
+        "date_range": data_range,
         "revenue": revenue_data,
         "atv": atv_data,
         "customers": customer_data,
@@ -477,7 +580,7 @@ def chat(message: ChatMessage):
     if "best selling" in query or "top selling" in query or "most popular" in query:
         item = get_top_selling_item(transactions)
         # Count how many were sold
-        count = sum(1 for txn in transactions for i in txn["items"] if i["name"] == item)
+        count = sum(txn.get("quantity", 1) for txn in transactions if txn.get("item_name") == item)
         return ChatResponse(response=f"Your best-selling product is '{item}' with {count} units sold in the last 30 days.")
     
     elif "revenue" in query and ("change" in query or "compare" in query or "last month" in query):

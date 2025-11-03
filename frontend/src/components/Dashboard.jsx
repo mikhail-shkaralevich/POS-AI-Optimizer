@@ -64,13 +64,22 @@ function Dashboard() {
       <Header businessName={businessName} />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Data Range Display */}
+        {metrics?.date_range && (
+          <div className="mb-6 text-center">
+            <p className="text-sm text-gray-600">
+              Data Period: <span className="font-semibold text-gray-800">{metrics.date_range}</span>
+            </p>
+          </div>
+        )}
+
         {/* Top 5 Metrics Section - Updated to include Foot Traffic and Conversion Rate */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
           <MetricCard
-            title="Total Revenue (Last 30 Days)"
+            title="Total Revenue"
             value={`$${metrics?.revenue?.total?.toLocaleString() || '0'}`}
             trend={metrics?.revenue?.trend || []}
-            tooltip="The total revenue generated from all transactions in the last 30 days"
+            tooltip="The total revenue generated from all transactions"
             type="revenue"
           />
           <MetricCard
@@ -84,14 +93,14 @@ function Dashboard() {
             title="New vs. Returning Customers"
             value={`${metrics?.customers?.new || 0} / ${metrics?.customers?.returning || 0}`}
             trend={metrics?.customers?.trend || []}
-            tooltip="Number of new customers versus returning customers in the last 30 days"
+            tooltip="Number of new customers versus returning customers"
             type="customers"
           />
           <MetricCard
-            title="Foot Traffic (Last 30 Days)"
+            title="Foot Traffic"
             value={metrics?.foot_traffic?.total?.toLocaleString() || '0'}
             trend={metrics?.foot_traffic?.trend || []}
-            tooltip="Estimated number of visitors to your store in the last 30 days (tracked by LiDAR sensor)"
+            tooltip="Estimated number of visitors to your store (tracked by LiDAR sensor)"
             type="footTraffic"
           />
           <MetricCard
