@@ -10,12 +10,13 @@ A modern, AI-powered dashboard for small retail businesses that provides prescri
 - **Prescriptive Recommendations**: Receive AI-driven suggestions to improve performance
 - **AI Consultant Chatbot**: Ask questions about your business data in natural language
 - **Pricing Page**: Professional pricing tiers with hardware options (LiDAR sensor)
+- **Data Import**: Upload your own Shopify/Square POS data and LiDAR sensor data directly from the web interface
 
 ## Tech Stack
 
 - **Frontend**: React.js with Vite, Tailwind CSS, Recharts
 - **Backend**: Python with FastAPI
-- **Data**: Mock JSON transaction data
+- **Data**: Real transaction data from Shopify/Square POS and LiDAR sensor foot traffic data
 
 ## Prerequisites
 
@@ -84,6 +85,58 @@ The frontend will run on `http://localhost:5173`
 
 Open your browser and navigate to `http://localhost:5173`
 
+### 6. Import Your Data
+
+The dashboard requires both POS transaction data and sensor foot traffic data to function properly:
+
+1. **Click "Import Data"** at the top of the dashboard to expand the upload section
+2. **Upload Shopify/Square POS CSV file**:
+   - Export your transaction data from Shopify or Square POS
+   - Required columns: Date, Time, Transaction ID, Customer ID, Item, Qty, Gross Sales
+   - File must be in CSV format
+3. **Upload Sensor JSON file**:
+   - Export foot traffic data from your LiDAR sensor device
+   - Required format: JSON array with entries containing timestamp, device_id, direction (1=entry, 0=exit)
+   - File must be in JSON format
+4. **Important**: Both files should cover the **same date range** for accurate conversion rate calculations
+
+After uploading, the dashboard will automatically refresh and display metrics calculated from your real business data.
+
+## Data Requirements
+
+### Shopify/Square POS CSV Format
+Your CSV file must include these columns:
+- **Date**: Transaction date (e.g., 7/31/25)
+- **Time**: Transaction time (e.g., 16:23:13)
+- **Transaction ID**: Unique transaction identifier
+- **Customer ID**: Customer identifier (can be "GUEST" for walk-ins)
+- **Item**: Product name
+- **Qty**: Quantity sold
+- **Gross Sales**: Total amount (with $ sign, e.g., $12.50)
+- **Category** (optional): Product category
+
+### LiDAR Sensor JSON Format
+Your JSON file must be an array of entries:
+```json
+{
+  "entries": [
+    {
+      "timestamp": "2025-07-01T10:30:00.000Z",
+      "device_id": "sensor_123",
+      "direction": 1
+    }
+  ]
+}
+```
+- **timestamp**: ISO 8601 format datetime
+- **device_id**: Sensor identifier
+- **direction**: 1 for entry, 0 for exit
+
+### Sample Data
+Sample data files are included in `/backend/data/`:
+- `shopify_data.csv` - Example POS export from Aloha Kira boutique
+- `sensor_data.json` - Example LiDAR sensor readings
+
 ## Project Structure
 
 ```
@@ -92,14 +145,15 @@ MVP/
 │   ├── main.py              # FastAPI server
 │   ├── requirements.txt     # Python dependencies
 │   └── data/
-│       ├── mock_data.json          # Mock transaction data
-│       └── mock_data_generator.py  # Script to regenerate mock data
+│       ├── shopify_data.csv        # Your POS transaction data
+│       └── sensor_data.json        # Your LiDAR sensor data
 ├── frontend/
 │   ├── src/
 │   │   ├── App.jsx          # Main application component with routing
 │   │   ├── components/      # React components
 │   │   │   ├── Dashboard.jsx        # Main dashboard view
 │   │   │   ├── PricingPage.jsx      # Pricing tiers page
+│   │   │   ├── DataUpload.jsx       # File upload interface
 │   │   │   └── ...                  # Other components
 │   │   ├── main.jsx         # Entry point
 │   │   └── index.css        # Global styles
@@ -110,45 +164,53 @@ MVP/
 └── README.md
 ```
 
-## Mock Data
+## How It Works
 
-The application uses mock transaction data to simulate a cafe's POS system. The data includes:
-- Transaction timestamps
-- Items sold with prices
-- Customer IDs (for tracking new vs. returning customers)
+The application analyzes your real business data to provide actionable insights:
 
-**Note:** The mock data generators are configured to automatically create data for the last 30 days from the current date. Running the generators will always produce fresh, up-to-date data.
+1. **Data Import**: Upload your Shopify/Square POS transaction data (CSV) and LiDAR sensor foot traffic data (JSON)
+2. **Automatic Analysis**: The system calculates key metrics including:
+   - Total revenue and daily trends
+   - Average transaction value (ATV)
+   - New vs. returning customers
+   - Foot traffic patterns
+   - Conversion rate (transactions ÷ foot traffic)
+3. **AI-Powered Insights**: Rule-based algorithms analyze your data to identify:
+   - Busiest time slots
+   - Top-selling products
+   - Customer acquisition patterns
+   - Revenue opportunities
+4. **Prescriptive Recommendations**: Get specific, data-driven suggestions tailored to your actual products and sales patterns
 
-To regenerate mock data:
-```bash
-cd backend/data
-python mock_data_generator.py      # Regenerates transaction data
-python sensor_data_generator.py    # Regenerates LiDAR sensor data
-```
+**Note**: The dashboard requires data from matching date ranges for both POS and sensor files to accurately calculate conversion rates and other combined metrics.
 
 ## AI Logic
 
 For this MVP, the "AI" features include:
-- **Insights**: Calculated from transaction patterns in the mock data
+- **Insights**: Calculated from real transaction patterns in your uploaded data
 - **Comparisons**: Simulated benchmarks against industry averages
-- **Prescriptions**: Rule-based recommendations based on data analysis
-- **Chatbot**: Natural language processing with pre-programmed responses
+- **Prescriptions**: Rule-based recommendations customized to your actual products and sales data
+- **Chatbot**: Natural language processing with pattern matching to answer questions about your business
 
 ## Development Notes
 
 - The chatbot uses simple pattern matching for the MVP
-- All insights are calculated from the mock data
+- All insights are calculated from your real uploaded data
 - Comparison data is simulated for demonstration purposes
-- Ready to integrate with real AI models and actual POS systems
+- Prescriptions are dynamically generated based on your actual product catalog
+- Conversion rate calculation automatically filters out days with incomplete sensor data
+- Ready to integrate with advanced ML models and real-time data streams
 
 ## Future Enhancements
 
-- Integration with real POS systems
-- Advanced ML models for predictions
-- User authentication
-- Multi-location support
-- Export reports functionality
-- Mobile responsive improvements
+- Real-time data sync with POS systems
+- Advanced ML models for sales predictions and demand forecasting
+- User authentication and multi-user support
+- Multi-location support with location comparison
+- Automated report generation and email delivery
+- Export functionality for reports and insights
+- Mobile app for on-the-go analytics
+- Integration with marketing platforms (Facebook Ads, Google Analytics)
 
 ## License
 
