@@ -55,3 +55,6 @@ Thumbs.db
 
 # Mock data
 *mock_data.json
+
+*data.json
+*data.csv
