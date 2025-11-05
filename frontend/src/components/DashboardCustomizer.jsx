@@ -16,6 +16,10 @@ const AVAILABLE_WIDGETS = [
 function DashboardCustomizer({ onWidgetsChange }) {
   const [activeWidgets, setActiveWidgets] = useState([]);
   const [showCustomizer, setShowCustomizer] = useState(false);
+  const [showFeatureForm, setShowFeatureForm] = useState(false);
+  const [featureName, setFeatureName] = useState('');
+  const [featureDescription, setFeatureDescription] = useState('');
+  const [submitStatus, setSubmitStatus] = useState(null); // 'success', 'error', null
 
   // Load customizer settings from localStorage
   useEffect(() => {
@@ -59,6 +63,37 @@ function DashboardCustomizer({ onWidgetsChange }) {
     if (onWidgetsChange) {
       onWidgetsChange(activeWidgets);
     }
+  };
+
+  const handleSubmitFeatureRequest = () => {
+    if (!featureName.trim() || !featureDescription.trim()) {
+      setSubmitStatus('error');
+      setTimeout(() => setSubmitStatus(null), 3000);
+      return;
+    }
+
+    // Create feature request object
+    const featureRequest = {
+      name: featureName,
+      description: featureDescription,
+      submittedAt: new Date().toISOString(),
+    };
+
+    // Save to localStorage (could be extended to send to backend)
+    const existingRequests = JSON.parse(localStorage.getItem('featureRequests') || '[]');
+    existingRequests.push(featureRequest);
+    localStorage.setItem('featureRequests', JSON.stringify(existingRequests));
+
+    // Show success message
+    setSubmitStatus('success');
+    setFeatureName('');
+    setFeatureDescription('');
+    
+    // Close form after 2 seconds
+    setTimeout(() => {
+      setShowFeatureForm(false);
+      setSubmitStatus(null);
+    }, 2000);
   };
 
   const categories = {
@@ -166,6 +201,14 @@ function DashboardCustomizer({ onWidgetsChange }) {
                 Reset to Default
               </button>
 
+              {/* Request Feature Button */}
+              <button
+                onClick={() => setShowFeatureForm(true)}
+                className="w-full mt-2 py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-medium transition-colors"
+              >
+                Request a Feature
+              </button>
+
               <p className="text-xs text-gray-500 mt-3">
                 Check/uncheck widgets to customize your dashboard view.
               </p>
@@ -188,6 +231,96 @@ function DashboardCustomizer({ onWidgetsChange }) {
               >
                 Customize Now
               </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Feature Request Form Modal */}
+      {showFeatureForm && (
+        <>
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-50"
+            onClick={() => !submitStatus && setShowFeatureForm(false)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+            <div className="bg-white rounded-lg shadow-2xl w-96 pointer-events-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold text-gray-800">Request a Feature</h3>
+                  <button
+                    onClick={() => {
+                      setShowFeatureForm(false);
+                      setSubmitStatus(null);
+                    }}
+                    className="text-gray-500 hover:text-gray-700 transition-colors"
+                    disabled={submitStatus !== null}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {submitStatus === null ? (
+                  <>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Feature Name
+                      </label>
+                      <input
+                        type="text"
+                        value={featureName}
+                        onChange={(e) => setFeatureName(e.target.value)}
+                        placeholder="e.g., Export to PDF"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                      />
+                    </div>
+
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Description
+                      </label>
+                      <textarea
+                        value={featureDescription}
+                        onChange={(e) => setFeatureDescription(e.target.value)}
+                        placeholder="Describe the feature you'd like to see..."
+                        rows="4"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm resize-none"
+                      />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowFeatureForm(false)}
+                        className="flex-1 py-2 px-4 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded text-sm font-medium transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSubmitFeatureRequest}
+                        className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-medium transition-colors"
+                      >
+                        Submit
+                      </button>
+                    </div>
+                  </>
+                ) : submitStatus === 'success' ? (
+                  <div className="text-center py-4">
+                    <div className="mb-2">
+                      <svg className="w-12 h-12 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-700 font-medium">Feature request submitted!</p>
+                    <p className="text-sm text-gray-600 mt-1">Thank you for your feedback.</p>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-red-600 font-medium">Please fill in all fields</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </>
