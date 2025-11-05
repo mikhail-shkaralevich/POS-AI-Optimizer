@@ -11,12 +11,14 @@ A modern, AI-powered dashboard for small retail businesses that provides prescri
 - **AI Consultant Chatbot**: Ask questions about your business data in natural language
 - **Pricing Page**: Professional pricing tiers with hardware options (LiDAR sensor)
 - **Data Import**: Upload your own Shopify/Square POS data and LiDAR sensor data directly from the web interface
+- **Customizable Dashboard**: Drag-and-drop widget selection - show/hide any metric or analytics card with one click
 
 ## Tech Stack
 
 - **Frontend**: React.js with Vite, Tailwind CSS, Recharts
 - **Backend**: Python with FastAPI
 - **Data**: Real transaction data from Shopify/Square POS and LiDAR sensor foot traffic data
+- **Storage**: localStorage for dashboard preferences and customization
 
 ## Prerequisites
 
@@ -152,6 +154,7 @@ MVP/
 │   │   ├── App.jsx          # Main application component with routing
 │   │   ├── components/      # React components
 │   │   │   ├── Dashboard.jsx        # Main dashboard view
+│   │   │   ├── DashboardCustomizer.jsx # Widget customization UI
 │   │   │   ├── PricingPage.jsx      # Pricing tiers page
 │   │   │   ├── DataUpload.jsx       # File upload interface
 │   │   │   └── ...                  # Other components
@@ -163,6 +166,24 @@ MVP/
 │   └── tailwind.config.js
 └── README.md
 ```
+
+## Customizing Your Dashboard
+
+The dashboard is fully customizable! Control which metrics and analytics you see:
+
+### How to Customize:
+1. **Click the ⚙️ settings button** in the bottom-right corner of the dashboard
+2. **Check/uncheck widgets** to show or hide specific cards:
+   - **Metrics**: Revenue, ATV, Customer Mix, Foot Traffic, Conversion Rate
+   - **Analytics**: AI Insights, Comparisons, Prescriptions
+   - **Tools**: AI Chatbot
+3. **Your preferences are saved** - Layout persists when you revisit the dashboard
+4. **Reset to default** - Use the "Reset to Default" button to restore all widgets
+
+### What Gets Saved:
+- Widget visibility preferences
+- Dashboard layout configuration
+- All settings stored in browser's localStorage (no account needed)
 
 ## How It Works
 
