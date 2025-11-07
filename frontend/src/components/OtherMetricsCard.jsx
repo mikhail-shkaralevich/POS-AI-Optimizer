@@ -1,40 +1,27 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 
 function OtherMetricsCard({ topSellingItem, retentionRate, busiestDay }) {
-  const [showTooltip, setShowTooltip] = useState({ item: false, retention: false, day: false });
+  // Stateless tooltip: rely on CSS group hover/focus-within to show/hide reliably on mouse leave
 
   const MetricBox = ({ title, value, tooltipText, tooltipKey }) => {
-    const tooltipRef = useRef(null);
-
-    useEffect(() => {
-      const handleClickOutside = (event) => {
-        if (tooltipRef.current && !tooltipRef.current.contains(event.target)) {
-          setShowTooltip(prev => ({ ...prev, [tooltipKey]: false }));
-        }
-      };
-
-      if (showTooltip[tooltipKey]) {
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-      }
-    }, [showTooltip[tooltipKey], tooltipKey]);
-
     return (
       <div className="bg-white rounded-lg shadow-md p-5 hover:shadow-lg transition-shadow relative">
-        <div className="absolute top-3 right-3" ref={tooltipRef}>
+        <div className="absolute top-3 right-3 group">
           <div className="relative">
             <button
               className="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-gray-600 text-sm font-semibold transition-colors"
-              onClick={() => setShowTooltip(prev => ({ ...prev, [tooltipKey]: !prev[tooltipKey] }))}
+              aria-label="Info"
+              type="button"
             >
               ?
             </button>
-            {showTooltip[tooltipKey] && (
-              <div className="absolute right-0 top-8 w-56 bg-gray-800 text-white text-sm p-3 rounded-lg shadow-lg z-10">
-                {tooltipText}
-                <div className="absolute -top-2 right-2 w-4 h-4 bg-gray-800 transform rotate-45"></div>
-              </div>
-            )}
+            <div
+              className="absolute right-0 top-8 w-56 bg-gray-800 text-white text-sm p-3 rounded-lg shadow-lg z-20 opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto transition-opacity duration-150"
+              role="tooltip"
+            >
+              {tooltipText}
+              <div className="absolute -top-2 right-2 w-4 h-4 bg-gray-800 transform rotate-45"></div>
+            </div>
           </div>
         </div>
         <h3 className="text-sm font-medium text-gray-600 mb-2">{title}</h3>
