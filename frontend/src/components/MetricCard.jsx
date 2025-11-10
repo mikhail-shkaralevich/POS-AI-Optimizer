@@ -1,105 +1,394 @@
 import React, { useState } from 'react';
-import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
+import axios from 'axios';
 
 function MetricCard({ title, value, trend, tooltip, type }) {
   const [showTooltip, setShowTooltip] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [granularity, setGranularity] = useState('daily');
+  const [hourlyData, setHourlyData] = useState(null);
+  const [loadingHourly, setLoadingHourly] = useState(false);
 
-  // Prepare chart data based on type
-  const prepareChartData = () => {
+  // Prepare chart data based on type and granularity
+  const prepareChartData = (dataSource = null) => {
+    const sourceData = dataSource || trend;
+    
+    // Helper to extract just the date part from "MM/DD HH[AM/PM]" format
+    const formatDateForAxis = (dateStr) => {
+      if (granularity === 'hourly') {
+        // Extract just the date part (e.g., "07/13 12PM" -> "07/13")
+        return dateStr.split(' ')[0];
+      }
+      return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+    
     if (type === 'customers') {
-      return trend.map(item => ({
-        date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      return sourceData.map(item => ({
+        date: formatDateForAxis(item.date),
+        fullDate: item.date, // Keep full date for tooltip
         new: item.new,
         returning: item.returning
       }));
     } else {
-      return trend.map(item => ({
-        date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      return sourceData.map(item => ({
+        date: formatDateForAxis(item.date),
+        fullDate: item.date, // Keep full date for tooltip
         value: item.value
       }));
     }
   };
 
-  const chartData = prepareChartData();
+  const fetchHourlyData = async () => {
+    if (hourlyData) {
+      return; // Already fetched
+    }
+    
+    setLoadingHourly(true);
+    try {
+      const response = await axios.get('http://localhost:8000/api/metrics/hourly');
+      setHourlyData(response.data);
+    } catch (error) {
+      console.error('Error fetching hourly data:', error);
+    }
+    setLoadingHourly(false);
+  };
+
+  const handleExpand = async () => {
+    if (!isExpanded) {
+      await fetchHourlyData();
+    }
+    setIsExpanded(!isExpanded);
+  };
+
+  const getCurrentData = () => {
+    // Only use hourly data when expanded AND hourly granularity is selected
+    if (isExpanded && granularity === 'hourly' && hourlyData) {
+      // Map the type to the correct hourly data key
+      const typeMap = {
+        'revenue': 'revenue',
+        'atv': 'atv',
+        'customers': 'customers',
+        'footTraffic': 'foot_traffic',
+        'conversion': 'conversion_rate'
+      };
+      return hourlyData[typeMap[type]]?.trend || [];
+    }
+    // Always use daily data for minimized view
+    return trend;
+  };
+
+  const chartData = prepareChartData(getCurrentData());
+
+  // Custom tooltip to show full date/time in hourly view
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const fullDate = payload[0].payload.fullDate || label;
+      
+      // Format date based on view state
+      let displayDate;
+      if (!isExpanded) {
+        // Minimized view: Show short format like "Jul 08"
+        try {
+          const date = new Date(fullDate);
+          displayDate = date.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+        } catch {
+          displayDate = fullDate;
+        }
+      } else {
+        // Expanded view: Show full date/time
+        displayDate = fullDate;
+      }
+      
+      // Format value based on metric type
+      const formatValue = (entry) => {
+        let formattedValue = entry.value;
+        
+        // Add $ for revenue and ATV metrics
+        if (type === 'revenue' || type === 'atv') {
+          formattedValue = `$${entry.value}`;
+        }
+        // Add % for conversion rate
+        else if (type === 'conversion') {
+          formattedValue = `${entry.value}%`;
+        }
+        
+        // For customers metric, show simplified labels
+        if (type === 'customers') {
+          const label = entry.name === 'New Customers' ? 'New' : 'Returning';
+          return isExpanded ? `${label}: ${formattedValue}` : `${label}: ${formattedValue}`;
+        }
+        
+        return isExpanded ? `${entry.name}: ${formattedValue}` : formattedValue;
+      };
+      
+      return (
+        <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-3">
+          <p className="text-sm font-semibold text-gray-700 mb-1">{displayDate}</p>
+          {payload.map((entry, index) => (
+            <p key={index} className="text-sm" style={{ color: entry.color }}>
+              {formatValue(entry)}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Custom X-axis tick formatter to show unique dates only
+  const renderCustomTick = (tickProps) => {
+    const { x, y, payload, index } = tickProps;
+    
+    // In hourly view, only show date if it's the first occurrence
+    if (granularity === 'hourly' && isExpanded) {
+      const currentDate = payload.value;
+      const previousDate = index > 0 ? chartData[index - 1]?.date : null;
+      
+      // Only render if this is a new date
+      if (currentDate !== previousDate) {
+        return (
+          <text 
+            x={x} 
+            y={y + 10} 
+            textAnchor="middle" 
+            fill="#666"
+            fontSize={12}
+          >
+            {currentDate}
+          </text>
+        );
+      }
+      return null;
+    }
+    
+    // Default rendering for daily view
+    return (
+      <text 
+        x={x} 
+        y={y + 10} 
+        textAnchor="end" 
+        fill="#666"
+        fontSize={12}
+        transform={`rotate(-45, ${x}, ${y + 10})`}
+      >
+        {payload.value}
+      </text>
+    );
+  };
+
+  // Render chart based on type
+  const renderChart = (height = "100%") => {
+    const commonProps = {
+      width: "100%",
+      height: height
+    };
+
+    if (type === 'customers') {
+      return (
+        <ResponsiveContainer {...commonProps}>
+          <BarChart data={chartData}>
+            {isExpanded && <CartesianGrid strokeDasharray="3 3" />}
+            <XAxis 
+              dataKey="date" 
+              hide={!isExpanded} 
+              height={isExpanded ? 80 : 0}
+              tick={renderCustomTick}
+            />
+            <YAxis hide={!isExpanded} />
+            <Tooltip content={<CustomTooltip />} />
+            {isExpanded && <Legend />}
+            <Bar dataKey="new" stackId="a" fill="#10b981" name="New Customers" />
+            <Bar dataKey="returning" stackId="a" fill="#3b82f6" name="Returning Customers" />
+          </BarChart>
+        </ResponsiveContainer>
+      );
+    } else if (type === 'revenue') {
+      return (
+        <ResponsiveContainer {...commonProps}>
+          <AreaChart data={chartData}>
+            {isExpanded && <CartesianGrid strokeDasharray="3 3" />}
+            <XAxis 
+              dataKey="date" 
+              hide={!isExpanded}
+              height={isExpanded ? 80 : 0}
+              tick={renderCustomTick}
+            />
+            <YAxis hide={!isExpanded} />
+            <Tooltip content={<CustomTooltip />} />
+            <Area type="monotone" dataKey="value" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.3} name="Revenue" />
+          </AreaChart>
+        </ResponsiveContainer>
+      );
+    } else if (type === 'footTraffic') {
+      return (
+        <ResponsiveContainer {...commonProps}>
+          <AreaChart data={chartData}>
+            {isExpanded && <CartesianGrid strokeDasharray="3 3" />}
+            <XAxis 
+              dataKey="date" 
+              hide={!isExpanded}
+              height={isExpanded ? 80 : 0}
+              tick={renderCustomTick}
+            />
+            <YAxis hide={!isExpanded} />
+            <Tooltip content={<CustomTooltip />} />
+            <Area type="monotone" dataKey="value" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.3} name="Foot Traffic" />
+          </AreaChart>
+        </ResponsiveContainer>
+      );
+    } else if (type === 'conversion') {
+      return (
+        <ResponsiveContainer {...commonProps}>
+          <LineChart data={chartData}>
+            {isExpanded && <CartesianGrid strokeDasharray="3 3" />}
+            <XAxis 
+              dataKey="date" 
+              hide={!isExpanded}
+              height={isExpanded ? 80 : 0}
+              tick={renderCustomTick}
+            />
+            <YAxis hide={!isExpanded} />
+            <Tooltip content={<CustomTooltip />} />
+            <Line type="monotone" dataKey="value" stroke="#ec4899" strokeWidth={2} dot={!isExpanded ? false : true} name="Conversion Rate %" />
+          </LineChart>
+        </ResponsiveContainer>
+      );
+    } else {
+      return (
+        <ResponsiveContainer {...commonProps}>
+          <LineChart data={chartData}>
+            {isExpanded && <CartesianGrid strokeDasharray="3 3" />}
+            <XAxis 
+              dataKey="date" 
+              hide={!isExpanded}
+              height={isExpanded ? 80 : 0}
+              tick={renderCustomTick}
+            />
+            <YAxis hide={!isExpanded} />
+            <Tooltip content={<CustomTooltip />} />
+            <Line type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={2} dot={!isExpanded ? false : true} name="Value" />
+          </LineChart>
+        </ResponsiveContainer>
+      );
+    }
+  };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 relative hover:shadow-lg transition-shadow">
-      {/* Tooltip Icon */}
-      <div className="absolute top-4 right-4">
-        <div
-          className="relative"
-          onMouseEnter={() => setShowTooltip(true)}
-          onMouseLeave={() => setShowTooltip(false)}
-        >
-          <button className="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-gray-600 text-sm font-semibold transition-colors">
-            ?
-          </button>
-          {showTooltip && (
-            <div className="absolute right-0 top-8 w-64 bg-gray-800 text-white text-sm p-3 rounded-lg shadow-lg z-10">
-              {tooltip}
-              <div className="absolute -top-2 right-2 w-4 h-4 bg-gray-800 transform rotate-45"></div>
-            </div>
-          )}
+    <>
+      {/* Regular Card View */}
+      <div className="bg-white rounded-lg shadow-md p-6 relative hover:shadow-lg transition-shadow">
+        {/* Tooltip Icon in top right corner */}
+        <div className="absolute top-4 right-4">
+          <div
+            className="relative"
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+          >
+            <button className="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-gray-600 text-sm font-semibold transition-colors">
+              ?
+            </button>
+            {showTooltip && (
+              <div className="absolute right-0 top-8 w-64 bg-gray-800 text-white text-sm p-3 rounded-lg shadow-lg z-10">
+                {tooltip}
+                <div className="absolute -top-2 right-2 w-4 h-4 bg-gray-800 transform rotate-45"></div>
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Title */}
+        <h3 className="text-sm font-medium text-gray-600 mb-2">{title}</h3>
+
+        {/* Value */}
+        <p className="text-3xl font-bold text-gray-900 mb-4">{value}</p>
+
+        {/* Chart */}
+        <div className="h-24">
+          {renderChart("100%")}
+        </div>
+
+        {/* Expand Icon in bottom right corner */}
+        <button
+          onClick={handleExpand}
+          className="absolute bottom-4 right-4 w-6 h-6 rounded-full bg-gray-200 hover:bg-blue-600 hover:text-white flex items-center justify-center text-gray-600 transition-colors"
+          title="Expand View"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          </svg>
+        </button>
       </div>
 
-      {/* Title */}
-      <h3 className="text-sm font-medium text-gray-600 mb-2">{title}</h3>
+      {/* Expanded Modal View */}
+      {isExpanded && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={handleExpand}>
+          <div className="bg-white rounded-lg shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+                  <p className="text-4xl font-bold text-blue-600 mt-2">{value}</p>
+                </div>
+                <button
+                  onClick={handleExpand}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
 
-      {/* Value */}
-      <p className="text-3xl font-bold text-gray-900 mb-4">{value}</p>
+              {/* Granularity Selector */}
+              <div className="mb-6 flex gap-2">
+                <button
+                  onClick={() => setGranularity('daily')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    granularity === 'daily'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Daily View
+                </button>
+                {/* Hide hourly view button for conversion rate */}
+                {type !== 'conversion' && (
+                  <button
+                    onClick={() => setGranularity('hourly')}
+                    disabled={loadingHourly}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      granularity === 'hourly'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    } ${loadingHourly ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {loadingHourly ? 'Loading...' : 'Hourly View'}
+                  </button>
+                )}
+              </div>
 
-      {/* Chart */}
-      <div className="h-24">
-        {type === 'customers' ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData}>
-              <XAxis dataKey="date" hide />
-              <YAxis hide />
-              <Tooltip />
-              <Bar dataKey="new" stackId="a" fill="#10b981" />
-              <Bar dataKey="returning" stackId="a" fill="#3b82f6" />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : type === 'revenue' ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
-              <XAxis dataKey="date" hide />
-              <YAxis hide />
-              <Tooltip />
-              <Area type="monotone" dataKey="value" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.3} />
-            </AreaChart>
-          </ResponsiveContainer>
-        ) : type === 'footTraffic' ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
-              <XAxis dataKey="date" hide />
-              <YAxis hide />
-              <Tooltip />
-              <Area type="monotone" dataKey="value" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.3} />
-            </AreaChart>
-          </ResponsiveContainer>
-        ) : type === 'conversion' ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
-              <XAxis dataKey="date" hide />
-              <YAxis hide />
-              <Tooltip />
-              <Line type="monotone" dataKey="value" stroke="#ec4899" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
-              <XAxis dataKey="date" hide />
-              <YAxis hide />
-              <Tooltip />
-              <Line type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-    </div>
+              {/* Expanded Chart */}
+              <div className="h-96 mb-4">
+                {renderChart("100%")}
+              </div>
+
+              {/* Info Section */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-gray-700">
+                  <strong>ℹ️ Tip:</strong> {tooltip}
+                </p>
+                {granularity === 'hourly' && (
+                  <p className="text-sm text-gray-600 mt-2">
+                    Viewing hourly breakdown. Each data point represents a specific hour of the day.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

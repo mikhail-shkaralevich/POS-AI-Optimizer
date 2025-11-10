@@ -534,6 +534,191 @@ def calculate_conversion_rate(transactions: List[Dict], days: int = 120) -> Dict
         "foot_traffic": total_traffic
     }
 
+def calculate_hourly_revenue(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
+    """Calculate revenue broken down by hour of day."""
+    cutoff_date = datetime.now() - timedelta(days=days)
+    hourly_revenue = defaultdict(float)
+    
+    for txn in transactions:
+        try:
+            txn_date = datetime.strptime(txn["timestamp"], "%Y-%m-%d %H:%M:%S")
+        except:
+            continue
+        
+        if txn_date >= cutoff_date:
+            hour_key = txn_date.strftime("%Y-%m-%d %H:00")
+            txn_total = txn.get("total", 0)
+            hourly_revenue[hour_key] += txn_total
+    
+    # Sort by datetime and format for frontend
+    sorted_hours = sorted(hourly_revenue.items())
+    trend_data = [
+        {
+            "date": datetime.strptime(hour, "%Y-%m-%d %H:00").strftime("%m/%d %I%p"),
+            "value": round(value, 2)
+        }
+        for hour, value in sorted_hours
+    ]
+    
+    return {"trend": trend_data}
+
+def calculate_hourly_atv(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
+    """Calculate ATV broken down by hour."""
+    cutoff_date = datetime.now() - timedelta(days=days)
+    hourly_atv = defaultdict(lambda: {"total": 0, "count": 0})
+    unique_transactions = defaultdict(lambda: {"total": 0, "hour": None})
+    
+    for txn in transactions:
+        try:
+            txn_date = datetime.strptime(txn["timestamp"], "%Y-%m-%d %H:%M:%S")
+        except:
+            continue
+        
+        if txn_date >= cutoff_date:
+            txn_id = txn["transaction_id"]
+            hour_key = txn_date.strftime("%Y-%m-%d %H:00")
+            if unique_transactions[txn_id]["hour"] is None:
+                unique_transactions[txn_id]["hour"] = hour_key
+            unique_transactions[txn_id]["total"] = txn.get("total", 0)
+    
+    for txn_id, data in unique_transactions.items():
+        if data["hour"]:
+            hourly_atv[data["hour"]]["total"] += data["total"]
+            hourly_atv[data["hour"]]["count"] += 1
+    
+    trend_data = []
+    for hour in sorted(hourly_atv.keys()):
+        day_data = hourly_atv[hour]
+        hourly_avg = day_data["total"] / day_data["count"] if day_data["count"] > 0 else 0
+        trend_data.append({
+            "date": datetime.strptime(hour, "%Y-%m-%d %H:00").strftime("%m/%d %I%p"),
+            "value": round(hourly_avg, 2)
+        })
+    
+    return {"trend": trend_data}
+
+def calculate_hourly_customers(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
+    """Calculate new vs returning customers by hour."""
+    cutoff_date = datetime.now() - timedelta(days=days)
+    customer_first_seen = {}
+    hourly_customers = defaultdict(lambda: {"new": 0, "returning": 0})
+    
+    # Find first transaction for each customer
+    for txn in sorted(transactions, key=lambda x: x["timestamp"]):
+        customer_id = txn["customer_id"]
+        try:
+            txn_date = datetime.strptime(txn["timestamp"], "%Y-%m-%d %H:%M:%S")
+        except:
+            continue
+        
+        if customer_id not in customer_first_seen:
+            customer_first_seen[customer_id] = txn_date
+    
+    # Categorize by hour (unique customers per hour)
+    processed_customers = defaultdict(set)
+    
+    for txn in transactions:
+        try:
+            txn_date = datetime.strptime(txn["timestamp"], "%Y-%m-%d %H:%M:%S")
+        except:
+            continue
+        
+        if txn_date >= cutoff_date:
+            hour_key = txn_date.strftime("%Y-%m-%d %H:00")
+            customer_id = txn["customer_id"]
+            
+            if customer_id in processed_customers[hour_key]:
+                continue
+            processed_customers[hour_key].add(customer_id)
+            
+            first_seen = customer_first_seen[customer_id]
+            
+            if first_seen >= cutoff_date and first_seen.strftime("%Y-%m-%d %H:00") == hour_key:
+                hourly_customers[hour_key]["new"] += 1
+            else:
+                hourly_customers[hour_key]["returning"] += 1
+    
+    trend_data = [
+        {
+            "date": datetime.strptime(hour, "%Y-%m-%d %H:00").strftime("%m/%d %I%p"),
+            "new": data["new"],
+            "returning": data["returning"]
+        }
+        for hour, data in sorted(hourly_customers.items())
+    ]
+    
+    return {"trend": trend_data}
+
+def calculate_hourly_foot_traffic(days: int = 120) -> Dict[str, Any]:
+    """Calculate foot traffic by hour."""
+    cutoff_date = datetime.now().replace(tzinfo=None) - timedelta(days=days)
+    hourly_traffic = defaultdict(int)
+    
+    for entry in sensor_data["entries"]:
+        try:
+            entry_date = datetime.fromisoformat(entry["timestamp"]).replace(tzinfo=None)
+        except:
+            continue
+        
+        if entry_date >= cutoff_date and entry.get("direction") == 1:
+            hour_key = entry_date.strftime("%Y-%m-%d %H:00")
+            hourly_traffic[hour_key] += 1
+    
+    trend_data = [
+        {
+            "date": datetime.strptime(hour, "%Y-%m-%d %H:00").strftime("%m/%d %I%p"),
+            "value": count
+        }
+        for hour, count in sorted(hourly_traffic.items())
+    ]
+    
+    return {"trend": trend_data}
+
+def calculate_hourly_conversion(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
+    """Calculate conversion rate by hour."""
+    cutoff_date = datetime.now().replace(tzinfo=None) - timedelta(days=days)
+    
+    # Get unique transactions per hour
+    hourly_transactions = defaultdict(set)
+    for txn in transactions:
+        try:
+            txn_date = datetime.strptime(txn["timestamp"], "%Y-%m-%d %H:%M:%S")
+        except:
+            continue
+        
+        if txn_date >= cutoff_date:
+            hour_key = txn_date.strftime("%Y-%m-%d %H:00")
+            hourly_transactions[hour_key].add(txn.get("transaction_id", ""))
+    
+    # Get hourly foot traffic
+    hourly_traffic = defaultdict(int)
+    for entry in sensor_data["entries"]:
+        try:
+            entry_date = datetime.fromisoformat(entry["timestamp"]).replace(tzinfo=None)
+        except:
+            continue
+        
+        if entry_date >= cutoff_date and entry.get("direction") == 1:
+            hour_key = entry_date.strftime("%Y-%m-%d %H:00")
+            hourly_traffic[hour_key] += 1
+    
+    # Calculate hourly conversion rates
+    trend_data = []
+    all_hours = sorted(set(list(hourly_transactions.keys()) + list(hourly_traffic.keys())))
+    
+    for hour in all_hours:
+        transactions_count = len(hourly_transactions.get(hour, set()))
+        traffic_count = hourly_traffic.get(hour, 0)
+        
+        if traffic_count > 0 and transactions_count <= traffic_count:
+            conversion = (transactions_count / traffic_count * 100)
+            trend_data.append({
+                "date": datetime.strptime(hour, "%Y-%m-%d %H:00").strftime("%m/%d %I%p"),
+                "value": round(conversion, 1)
+            })
+    
+    return {"trend": trend_data}
+
 # API Endpoints
 @app.get("/")
 def read_root():
@@ -575,6 +760,19 @@ def get_metrics():
         "top_selling_item": get_top_selling_item(transactions),
         "retention_rate": calculate_retention_rate(transactions),
         "busiest_day": get_busiest_day(transactions)
+    }
+
+@app.get("/api/metrics/hourly")
+def get_hourly_metrics():
+    """Get hourly breakdown of all metrics for detailed analysis."""
+    transactions = mock_data["transactions"]
+    
+    return {
+        "revenue": calculate_hourly_revenue(transactions),
+        "atv": calculate_hourly_atv(transactions),
+        "customers": calculate_hourly_customers(transactions),
+        "foot_traffic": calculate_hourly_foot_traffic(),
+        "conversion_rate": calculate_hourly_conversion(transactions)
     }
 
 @app.get("/api/insights")
