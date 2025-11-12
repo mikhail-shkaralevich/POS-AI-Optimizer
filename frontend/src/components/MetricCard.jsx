@@ -119,6 +119,52 @@ function MetricCard({ title, value, trend, tooltip, type }) {
     return merged;
   });
 
+  // Compute benchmark aggregates for the header summary (expanded daily only)
+  const getBenchmarkAggregate = () => {
+    if (!(isExpanded && granularity === 'daily' && showBenchmark) || !benchmarkSeriesRaw || benchmarkSeriesRaw.length === 0) {
+      return null;
+    }
+    if (type === 'customers') {
+      const totals = benchmarkSeriesRaw.reduce((acc, d) => {
+        acc.new += d.benchmarkNew || 0;
+        acc.returning += d.benchmarkReturning || 0;
+        return acc;
+      }, { new: 0, returning: 0 });
+      const total = totals.new + totals.returning;
+      return {
+        label: `${totals.new.toLocaleString()} / ${totals.returning.toLocaleString()} (Total ${total.toLocaleString()})`,
+      };
+    }
+    if (type === 'revenue' || type === 'footTraffic') {
+      const sum = benchmarkSeriesRaw.reduce((s, d) => s + (d.benchmark || 0), 0);
+      const formatted = type === 'revenue' ? `$${sum.toLocaleString()}` : sum.toLocaleString();
+      return { label: `${formatted}` };
+    }
+    if (type === 'atv') {
+      const avg = benchmarkSeriesRaw.reduce((s, d) => s + (d.benchmark || 0), 0) / benchmarkSeriesRaw.length;
+      return { label: `$${avg.toFixed(2)}` };
+    }
+    if (type === 'conversion') {
+      const avg = benchmarkSeriesRaw.reduce((s, d) => s + (d.benchmark || 0), 0) / benchmarkSeriesRaw.length;
+      return { label: `${avg.toFixed(1)}%` };
+    }
+    return null;
+  };
+  const benchmarkAggregate = getBenchmarkAggregate();
+
+  // Compute store total for customers to append to title
+  const getStoreCustomersTotal = () => {
+    if (!(isExpanded && type === 'customers')) return null;
+    const src = getCurrentData() || [];
+    const totals = src.reduce((acc, d) => {
+      acc.new += d.new || 0;
+      acc.returning += d.returning || 0;
+      return acc;
+    }, { new: 0, returning: 0 });
+    return (totals.new + totals.returning) || 0;
+  };
+  const storeCustomersTotal = getStoreCustomersTotal();
+
   // Custom tooltip to show full date/time in hourly view
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -392,7 +438,16 @@ function MetricCard({ title, value, trend, tooltip, type }) {
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
-                  <p className="text-4xl font-bold text-blue-600 mt-2">{value}</p>
+                  <div className="mt-2 flex items-baseline gap-6 flex-wrap">
+                    <p className="text-4xl font-bold text-blue-600">
+                      {type === 'customers' && storeCustomersTotal !== null
+                        ? `${value} (Total ${storeCustomersTotal.toLocaleString()})`
+                        : value}
+                    </p>
+                    {benchmarkAggregate && (
+                      <p className="text-4xl font-bold text-red-600">{benchmarkAggregate.label}</p>
+                    )}
+                  </div>
                 </div>
                 <button
                   onClick={handleExpand}
