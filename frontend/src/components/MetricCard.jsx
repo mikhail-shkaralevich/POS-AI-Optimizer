@@ -244,9 +244,9 @@ function MetricCard({ title, value, trend, tooltip, type }) {
             {isExpanded && <Legend />}
             {showBenchmark && granularity === 'daily' && (
               <>
-                {/* Light red shades for benchmark */}
-                <Bar dataKey="benchmarkNew" stackId="b" fill="#fecaca" fillOpacity={0.75} name="Benchmark New" />
-                <Bar dataKey="benchmarkReturning" stackId="b" fill="#fca5a5" fillOpacity={0.75} name="Benchmark Returning" />
+                {/* Benchmark New: yellow, Benchmark Returning: red */}
+                <Bar dataKey="benchmarkNew" stackId="b" fill="#fde68a" fillOpacity={0.85} name="Benchmark New" />
+                <Bar dataKey="benchmarkReturning" stackId="b" fill="#ef4444" fillOpacity={0.7} name="Benchmark Returning" />
               </>
             )}
             <Bar dataKey="new" stackId="a" fill="#10b981" name="New Customers" />
