@@ -242,7 +242,7 @@ function MetricCard({ title, value, trend, tooltip, type }) {
             <YAxis hide={!isExpanded} />
             <Tooltip content={<CustomTooltip />} />
             {isExpanded && <Legend />}
-            {showBenchmark && granularity === 'daily' && (
+            {isExpanded && showBenchmark && granularity === 'daily' && (
               <>
                 {/* Benchmark New: yellow, Benchmark Returning: red */}
                 <Bar dataKey="benchmarkNew" stackId="b" fill="#fde68a" fillOpacity={0.85} name="Benchmark New" />
@@ -267,7 +267,7 @@ function MetricCard({ title, value, trend, tooltip, type }) {
             />
             <YAxis hide={!isExpanded} />
             <Tooltip content={<CustomTooltip />} />
-            {showBenchmark && granularity === 'daily' && (
+            {isExpanded && showBenchmark && granularity === 'daily' && (
               <Area type="monotone" dataKey="benchmark" stroke="#ef4444" fill="#fecaca" fillOpacity={0.35} name="Benchmark" />
             )}
             <Area type="monotone" dataKey="value" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.3} name="Revenue" />
@@ -287,7 +287,7 @@ function MetricCard({ title, value, trend, tooltip, type }) {
             />
             <YAxis hide={!isExpanded} />
             <Tooltip content={<CustomTooltip />} />
-            {showBenchmark && granularity === 'daily' && (
+            {isExpanded && showBenchmark && granularity === 'daily' && (
               <Area type="monotone" dataKey="benchmark" stroke="#ef4444" fill="#fecaca" fillOpacity={0.35} name="Benchmark" />
             )}
             <Area type="monotone" dataKey="value" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.3} name="Foot Traffic" />
@@ -307,7 +307,7 @@ function MetricCard({ title, value, trend, tooltip, type }) {
             />
             <YAxis hide={!isExpanded} />
             <Tooltip content={<CustomTooltip />} />
-            {showBenchmark && granularity === 'daily' && (
+            {isExpanded && showBenchmark && granularity === 'daily' && (
               <Line type="monotone" dataKey="benchmark" stroke="#ef4444" strokeDasharray="5 5" strokeWidth={2} dot={!isExpanded ? false : true} name="Benchmark %" />
             )}
             <Line type="monotone" dataKey="value" stroke="#ec4899" strokeWidth={2} dot={!isExpanded ? false : true} name="Conversion Rate %" />
@@ -327,7 +327,7 @@ function MetricCard({ title, value, trend, tooltip, type }) {
             />
             <YAxis hide={!isExpanded} />
             <Tooltip content={<CustomTooltip />} />
-            {showBenchmark && granularity === 'daily' && (
+            {isExpanded && showBenchmark && granularity === 'daily' && (
               <Line type="monotone" dataKey="benchmark" stroke="#ef4444" strokeDasharray="5 5" strokeWidth={2} dot={!isExpanded ? false : true} name="Benchmark" />
             )}
             <Line type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={2} dot={!isExpanded ? false : true} name="Value" />
