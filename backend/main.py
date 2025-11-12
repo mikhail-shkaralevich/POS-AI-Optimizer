@@ -12,6 +12,11 @@ from collections import defaultdict, Counter
 import json
 import os
 import shutil
+from anthropic import Anthropic
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 app = FastAPI(title="Retail Dashboard API")
 
@@ -124,12 +129,117 @@ def load_sensor_data():
 mock_data = load_shopify_data()
 sensor_data = load_sensor_data()
 
+# Initialize Anthropic client with error handling
+try:
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key or api_key == "your_anthropic_api_key_here":
+        print("[WARNING] ANTHROPIC_API_KEY not set. Chatbot will not work until API key is configured.")
+        anthropic_client = None
+    else:
+        anthropic_client = Anthropic(api_key=api_key)
+        print("[INFO] Anthropic client initialized successfully")
+except Exception as e:
+    print(f"[ERROR] Failed to initialize Anthropic client: {e}")
+    anthropic_client = None
+
+ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
+MAX_TOKENS = int(os.getenv("MAX_TOKENS", "2000"))
+
 # Pydantic models for request/response
 class ChatMessage(BaseModel):
     message: str
 
 class ChatResponse(BaseModel):
     response: str
+
+# AI Context Generator
+def generate_business_context() -> str:
+    """Generate comprehensive business context for Claude AI."""
+    transactions = mock_data["transactions"]
+    business_name = mock_data["business_name"]
+    
+    # Calculate key metrics
+    revenue_data = calculate_revenue(transactions, days=30)
+    atv_data = calculate_atv(transactions, days=30)
+    customer_data = calculate_customer_metrics(transactions, days=30)
+    foot_traffic_data = calculate_foot_traffic(days=30)
+    conversion_data = calculate_conversion_rate(transactions, days=30)
+    retention_rate = calculate_retention_rate(transactions)
+    busiest_day = get_busiest_day(transactions)
+    top_item = get_top_selling_item(transactions)
+    
+    # Get top 5 selling items with counts
+    item_counts = Counter()
+    for txn in transactions:
+        item_name = txn.get("item_name", "")
+        quantity = txn.get("quantity", 1)
+        if item_name and item_name.lower() != "bag fee":
+            item_counts[item_name] += quantity
+    top_5_items = item_counts.most_common(5)
+    
+    # Analyze busiest hours
+    hour_counts = Counter()
+    for txn in transactions:
+        try:
+            txn_date = datetime.strptime(txn["timestamp"], "%Y-%m-%d %H:%M:%S")
+            hour_counts[txn_date.hour] += 1
+        except:
+            continue
+    
+    busiest_hours = hour_counts.most_common(3) if hour_counts else []
+    
+    context = f"""
+BUSINESS OVERVIEW:
+Business Name: {business_name}
+Business Type: Retail Store (selling accessories, hair products, and lifestyle items)
+
+KEY METRICS (Last 30 Days):
+- Total Revenue: ${revenue_data['total']:,.2f}
+- Average Daily Revenue: ${revenue_data['average_daily']:,.2f}
+- Average Transaction Value (ATV): ${atv_data['value']:.2f}
+- Total Transactions: {len(set(txn['transaction_id'] for txn in transactions))}
+- Foot Traffic (LiDAR sensor): {foot_traffic_data['total']:,} visitors
+- Conversion Rate: {conversion_data['rate']}%
+- Customer Retention Rate: {retention_rate}%
+- New Customers: {customer_data['new']}
+- Returning Customers: {customer_data['returning']}
+
+PRODUCT INSIGHTS:
+Top Selling Items:
+"""
+    
+    for i, (item, count) in enumerate(top_5_items, 1):
+        context += f"{i}. {item}: {count} units sold\n"
+    
+    context += f"\nOPERATIONAL INSIGHTS:\n"
+    context += f"- Busiest Day: {busiest_day}\n"
+    
+    if busiest_hours:
+        hours_str = ", ".join([f"{hour}:00" for hour, _ in busiest_hours])
+        context += f"- Busiest Hours: {hours_str}\n"
+    
+    context += f"\nREVENUE TRENDS:\n"
+    if len(revenue_data['trend']) > 1:
+        trend_values = [t['value'] for t in revenue_data['trend']]
+        is_increasing = revenue_data['trend'][-1]['value'] > revenue_data['trend'][0]['value']
+        context += f"- Recent trend: {'Increasing' if is_increasing else 'Decreasing/Stable'}\n"
+        context += f"- Daily revenue range: ${min(trend_values):.2f} - ${max(trend_values):.2f}\n"
+    else:
+        context += "- Insufficient trend data available\n"
+    
+    context += """
+You are an expert AI business consultant with the following capabilities:
+
+1. DATA ANALYSIS: You have access to the business data above. Use it to provide specific, data-driven insights when asked about this business's performance.
+
+2. GENERAL BUSINESS KNOWLEDGE: You can also answer general business questions, provide industry insights, discuss business strategies, marketing tactics, and operational best practices - even when they're not specifically related to the data above.
+
+3. HYBRID RESPONSES: When appropriate, combine your general business knowledge with the specific data to provide comprehensive, actionable advice.
+
+Be conversational, insightful, and practical in your recommendations. If asked about specific metrics in the data, cite the actual numbers. If asked general business questions, draw on your broad business knowledge while relating it to retail/small business contexts when relevant.
+"""
+    
+    return context
 
 # Helper functions for analytics calculations
 def calculate_revenue(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
@@ -794,59 +904,35 @@ def get_prescriptions():
 
 @app.post("/api/chat")
 def chat(message: ChatMessage):
-    """Handle chatbot queries using simple pattern matching."""
-    query = message.message.lower()
-    transactions = mock_data["transactions"]
-    
-    # Pattern matching for common queries
-    if "best selling" in query or "top selling" in query or "most popular" in query:
-        item = get_top_selling_item(transactions)
-        # Count how many were sold
-        count = sum(txn.get("quantity", 1) for txn in transactions if txn.get("item_name") == item)
-        return ChatResponse(response=f"Your best-selling product is '{item}' with {count} units sold in the last 30 days.")
-    
-    elif "revenue" in query and ("change" in query or "compare" in query or "last month" in query):
-        return ChatResponse(response="Your revenue increased by 8% compared to the previous month. Keep up the great work!")
-    
-    elif "marketing" in query or "suggest" in query or "idea" in query:
-        return ChatResponse(response="Based on your data, I recommend implementing a loyalty program for returning customers. Your retention rate is strong at 45%, and a rewards system could boost it to 55-60%. Would you like specific details on setting this up?")
-    
-    elif "retention" in query or "customer retention" in query:
-        rate = calculate_retention_rate(transactions)
-        return ChatResponse(response=f"Your customer retention rate is {rate}%. This is above the industry average for small cafes!")
-    
-    elif "busiest" in query or "busy" in query:
-        day = get_busiest_day(transactions)
-        return ChatResponse(response=f"Your busiest day is {day}. Consider scheduling more staff and stocking up on popular items for {day}s.")
-    
-    elif "revenue" in query or "sales" in query or "total" in query:
-        revenue_data = calculate_revenue(transactions)
-        return ChatResponse(response=f"Your total revenue for the last 30 days is ${revenue_data['total']:,.2f}, with an average daily revenue of ${revenue_data['average_daily']:,.2f}.")
-    
-    elif "atv" in query or "average transaction" in query or "transaction value" in query:
-        atv_data = calculate_atv(transactions)
-        return ChatResponse(response=f"Your Average Transaction Value (ATV) is ${atv_data['value']:.2f}. To increase this, consider bundling products or suggesting add-ons at checkout.")
-    
-    elif "customer" in query and "new" in query:
-        customer_data = calculate_customer_metrics(transactions)
-        return ChatResponse(response=f"In the last 30 days, you had {customer_data['new']} new customers and {customer_data['returning']} returning customers.")
-    
-    elif "foot traffic" in query or "visitors" in query or "people visiting" in query:
-        traffic_data = calculate_foot_traffic()
-        return ChatResponse(response=f"Your foot traffic for the last 30 days is {traffic_data['total']:,} visitors (tracked by LiDAR sensor), with an average of {traffic_data['average_daily']:.0f} visitors per day.")
-    
-    elif "conversion" in query or "conversion rate" in query:
-        conversion_data = calculate_conversion_rate(transactions)
-        return ChatResponse(response=f"Your conversion rate is {conversion_data['rate']}%, meaning {conversion_data['rate']}% of visitors make a purchase. This is calculated from {conversion_data['transactions']} transactions out of {conversion_data['foot_traffic']} estimated visitors.")
-    
-    elif "hello" in query or "hi" in query or "hey" in query:
-        return ChatResponse(response="Hello! I'm your AI business consultant. I can help you understand your sales data, identify trends, and provide recommendations. Try asking me about your revenue, best-selling items, or for marketing suggestions!")
-    
-    elif "help" in query:
-        return ChatResponse(response="I can answer questions about:\n• Your revenue and sales trends\n• Best-selling products\n• Customer retention\n• Average transaction value\n• Marketing suggestions\n• Busiest days and times\n\nJust ask me a question in natural language!")
-    
-    else:
-        return ChatResponse(response="I'm not sure I understand that question. Try asking me about your revenue, best-selling products, customer retention, or marketing ideas. You can also type 'help' to see what I can do!")
+    """Handle chatbot queries using Claude AI with business context."""
+    try:
+        # Generate business context with current data
+        business_context = generate_business_context()
+        
+        # Call Claude AI
+        response = anthropic_client.messages.create(
+            model=ANTHROPIC_MODEL,
+            max_tokens=MAX_TOKENS,
+            system=business_context,
+            messages=[
+                {
+                    "role": "user",
+                    "content": message.message
+                }
+            ]
+        )
+        
+        # Extract the response text
+        ai_response = response.content[0].text
+        
+        return ChatResponse(response=ai_response)
+        
+    except Exception as e:
+        # Log error and return a friendly message
+        print(f"[ERROR] Chat API error: {e}")
+        return ChatResponse(
+            response="I apologize, but I encountered an error processing your request. Please try again or rephrase your question."
+        )
 
 @app.post("/api/upload/shopify")
 async def upload_shopify_data(file: UploadFile = File(...)):
