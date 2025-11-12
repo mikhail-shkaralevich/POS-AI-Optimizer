@@ -50,7 +50,27 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 3. Frontend Setup
+### 3. Configure API Key for AI Chatbot
+
+The AI chatbot requires an Anthropic API key to function:
+
+1. **Get your API key**:
+   - Visit [https://console.anthropic.com](https://console.anthropic.com)
+   - Sign up or log in
+   - Navigate to **API Keys** and create a new key
+   - Copy your API key (starts with `sk-ant-api03-...`)
+
+2. **Set up environment variables**:
+   - Open the `.env` file in the `backend` directory
+   - Replace `your_anthropic_api_key_here` with your actual API key:
+     ```
+     ANTHROPIC_API_KEY=sk-ant-api03-your-actual-key-here
+     ```
+   - Save the file
+
+**Note**: The chatbot will not work without a valid API key. The backend will display a warning if the key is missing.
+
+### 4. Frontend Setup
 
 ```bash
 # Navigate to frontend directory (from project root)
@@ -60,7 +80,7 @@ cd frontend
 npm install
 ```
 
-### 4. Running the Application
+### 5. Running the Application
 
 #### Start the Backend Server (Terminal 1)
 
@@ -84,11 +104,11 @@ npm run dev
 
 The frontend will run on `http://localhost:5173`
 
-### 5. Access the Dashboard
+### 6. Access the Dashboard
 
 Open your browser and navigate to `http://localhost:5173`
 
-### 6. Import Your Data
+### 7. Import Your Data
 
 The dashboard requires both POS transaction data and sensor foot traffic data to function properly:
 
