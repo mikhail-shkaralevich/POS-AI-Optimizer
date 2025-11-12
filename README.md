@@ -62,11 +62,23 @@ The AI chatbot requires an Anthropic API key to function:
 
 2. **Set up environment variables**:
    - Open the `.env` file in the `backend` directory
-   - Replace `your_anthropic_api_key_here` with your actual API key:
-     ```
+   - Configure the following settings:
+     ```properties
+     # Required: Your Anthropic API key
      ANTHROPIC_API_KEY=sk-ant-api03-your-actual-key-here
+     
+     # Optional: Specify Claude model (default: claude-3-5-sonnet-20241022)
+     ANTHROPIC_MODEL=claude-sonnet-4-20250514
+     
+     # Optional: Maximum tokens for AI responses (default: 2000)
+     MAX_TOKENS=4096
      ```
    - Save the file
+
+3. **Available Models**:
+   - `claude-sonnet-4-20250514` - Claude Sonnet 4 (latest, recommended)
+   - `claude-3-5-sonnet-20241022` - Claude 3.5 Sonnet
+   - `claude-3-opus-20240229` - Claude 3 Opus (most capable)
 
 **Note**: The chatbot will not work without a valid API key. The backend will display a warning if the key is missing.
 
@@ -242,11 +254,11 @@ For this MVP, the "AI" features include:
 - **Insights**: Calculated from real transaction patterns in your uploaded data
 - **Comparisons**: Simulated benchmarks against industry averages
 - **Prescriptions**: Rule-based recommendations customized to your actual products and sales data
-- **Chatbot**: Natural language processing with pattern matching to answer questions about your business
+- **Chatbot**: Powered by Claude AI (Anthropic) with natural language understanding to answer questions about your business data
 
 ## Development Notes
 
-- The chatbot uses simple pattern matching for the MVP
+- The chatbot uses Claude AI for natural language understanding
 - All insights are calculated from your real uploaded data
 - Comparison data is simulated for demonstration purposes
 - Prescriptions are dynamically generated based on your actual product catalog

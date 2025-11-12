@@ -142,6 +142,7 @@ except Exception as e:
     print(f"[ERROR] Failed to initialize Anthropic client: {e}")
     anthropic_client = None
 
+# Try multiple model names in case some are not available
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "2000"))
 
@@ -906,6 +907,12 @@ def get_prescriptions():
 def chat(message: ChatMessage):
     """Handle chatbot queries using Claude AI with business context."""
     try:
+        # Check if Anthropic client is initialized
+        if anthropic_client is None:
+            return ChatResponse(
+                response="The AI chatbot is not configured. Please set your ANTHROPIC_API_KEY in the backend/.env file and restart the server. Visit https://console.anthropic.com to get your API key."
+            )
+        
         # Generate business context with current data
         business_context = generate_business_context()
         
