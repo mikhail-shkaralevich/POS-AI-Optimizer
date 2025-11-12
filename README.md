@@ -7,6 +7,7 @@ A modern, AI-powered dashboard for small retail businesses that provides prescri
 - **Real-time Metrics**: Track revenue, average transaction value, and customer patterns
 - **AI Insights**: Get actionable business intelligence from your data
 - **Comparative Analytics**: Benchmark against similar businesses
+- **Benchmarking (Daily View)**: In any maximized metric chart, toggle "Show benchmarking" to overlay industry average (mocked) series on the same chart for small retail
 - **Prescriptive Recommendations**: Receive AI-driven suggestions to improve performance
 - **AI Consultant Chatbot**: Ask questions about your business data in natural language
 - **Pricing Page**: Professional pricing tiers with hardware options (LiDAR sensor)
@@ -179,6 +180,16 @@ The dashboard is fully customizable! Control which metrics and analytics you see
    - **Tools**: AI Chatbot
 3. **Your preferences are saved** - Layout persists when you revisit the dashboard
 4. **Reset to default** - Use the "Reset to Default" button to restore all widgets
+
+### Benchmarking in Maximized Charts
+
+In the maximized view of any metric chart, select "Daily View" and click "Show benchmarking" to overlay the industry benchmark on the same chart. The benchmark represents a realistic industry average for small retail businesses, including weekday/weekend seasonality. It is currently mock data designed for demo purposes and applies to:
+
+- Total Revenue
+- Average Transaction Value (ATV)
+- New vs. Returning Customers
+- Foot Traffic
+- Conversion Rate
 
 ### What Gets Saved:
 - Widget visibility preferences

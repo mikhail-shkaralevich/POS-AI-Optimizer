@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import axios from 'axios';
+import { generateBenchmarkSeries } from '../utils/benchmark';
 
 function MetricCard({ title, value, trend, tooltip, type }) {
   const [showTooltip, setShowTooltip] = useState(false);
@@ -8,6 +9,7 @@ function MetricCard({ title, value, trend, tooltip, type }) {
   const [granularity, setGranularity] = useState('daily');
   const [hourlyData, setHourlyData] = useState(null);
   const [loadingHourly, setLoadingHourly] = useState(false);
+  const [showBenchmark, setShowBenchmark] = useState(false);
 
   // Prepare chart data based on type and granularity
   const prepareChartData = (dataSource = null) => {
@@ -79,6 +81,44 @@ function MetricCard({ title, value, trend, tooltip, type }) {
 
   const chartData = prepareChartData(getCurrentData());
 
+  // Build benchmark chart data (daily only)
+  const benchmarkSeriesRaw = (isExpanded && granularity === 'daily' && showBenchmark)
+    ? generateBenchmarkSeries(type, trend || [])
+    : [];
+
+  const prepareBenchmarkChartData = () => {
+    if (!benchmarkSeriesRaw || benchmarkSeriesRaw.length === 0) return [];
+    if (type === 'customers') {
+      return benchmarkSeriesRaw.map(item => ({
+        date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        fullDate: item.fullDate,
+        new: item.benchmarkNew,
+        returning: item.benchmarkReturning,
+      }));
+    }
+    return benchmarkSeriesRaw.map(item => ({
+      date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      fullDate: item.fullDate,
+      value: item.benchmark,
+    }));
+  };
+  const benchmarkChartData = prepareBenchmarkChartData();
+
+  // Merge actual and benchmark into one dataset for overlay
+  const combinedData = chartData.map((row, idx) => {
+    const merged = { ...row };
+    const b = benchmarkChartData[idx];
+    if (b) {
+      if (type === 'customers') {
+        merged.benchmarkNew = b.new;
+        merged.benchmarkReturning = b.returning;
+      } else {
+        merged.benchmark = b.value;
+      }
+    }
+    return merged;
+  });
+
   // Custom tooltip to show full date/time in hourly view
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -114,8 +154,12 @@ function MetricCard({ title, value, trend, tooltip, type }) {
         
         // For customers metric, show simplified labels
         if (type === 'customers') {
-          const label = entry.name === 'New Customers' ? 'New' : 'Returning';
-          return isExpanded ? `${label}: ${formattedValue}` : `${label}: ${formattedValue}`;
+          const dk = entry.dataKey || '';
+          const isBench = dk.startsWith('benchmark');
+          const isNew = dk.includes('New') || dk === 'new';
+          const baseLabel = isNew ? 'New' : 'Returning';
+          const labelText = isBench ? `${baseLabel} (Benchmark)` : baseLabel;
+          return `${labelText}: ${formattedValue}`;
         }
         
         return isExpanded ? `${entry.name}: ${formattedValue}` : formattedValue;
@@ -178,6 +222,7 @@ function MetricCard({ title, value, trend, tooltip, type }) {
 
   // Render chart based on type
   const renderChart = (height = "100%") => {
+    const dataToUse = combinedData;
     const commonProps = {
       width: "100%",
       height: height
@@ -186,7 +231,7 @@ function MetricCard({ title, value, trend, tooltip, type }) {
     if (type === 'customers') {
       return (
         <ResponsiveContainer {...commonProps}>
-          <BarChart data={chartData}>
+          <BarChart data={dataToUse}>
             {isExpanded && <CartesianGrid strokeDasharray="3 3" />}
             <XAxis 
               dataKey="date" 
@@ -197,6 +242,13 @@ function MetricCard({ title, value, trend, tooltip, type }) {
             <YAxis hide={!isExpanded} />
             <Tooltip content={<CustomTooltip />} />
             {isExpanded && <Legend />}
+            {showBenchmark && granularity === 'daily' && (
+              <>
+                {/* Light red shades for benchmark */}
+                <Bar dataKey="benchmarkNew" stackId="b" fill="#fecaca" fillOpacity={0.75} name="Benchmark New" />
+                <Bar dataKey="benchmarkReturning" stackId="b" fill="#fca5a5" fillOpacity={0.75} name="Benchmark Returning" />
+              </>
+            )}
             <Bar dataKey="new" stackId="a" fill="#10b981" name="New Customers" />
             <Bar dataKey="returning" stackId="a" fill="#3b82f6" name="Returning Customers" />
           </BarChart>
@@ -205,7 +257,7 @@ function MetricCard({ title, value, trend, tooltip, type }) {
     } else if (type === 'revenue') {
       return (
         <ResponsiveContainer {...commonProps}>
-          <AreaChart data={chartData}>
+          <AreaChart data={dataToUse}>
             {isExpanded && <CartesianGrid strokeDasharray="3 3" />}
             <XAxis 
               dataKey="date" 
@@ -215,6 +267,9 @@ function MetricCard({ title, value, trend, tooltip, type }) {
             />
             <YAxis hide={!isExpanded} />
             <Tooltip content={<CustomTooltip />} />
+            {showBenchmark && granularity === 'daily' && (
+              <Area type="monotone" dataKey="benchmark" stroke="#ef4444" fill="#fecaca" fillOpacity={0.35} name="Benchmark" />
+            )}
             <Area type="monotone" dataKey="value" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.3} name="Revenue" />
           </AreaChart>
         </ResponsiveContainer>
@@ -222,7 +277,7 @@ function MetricCard({ title, value, trend, tooltip, type }) {
     } else if (type === 'footTraffic') {
       return (
         <ResponsiveContainer {...commonProps}>
-          <AreaChart data={chartData}>
+          <AreaChart data={dataToUse}>
             {isExpanded && <CartesianGrid strokeDasharray="3 3" />}
             <XAxis 
               dataKey="date" 
@@ -232,6 +287,9 @@ function MetricCard({ title, value, trend, tooltip, type }) {
             />
             <YAxis hide={!isExpanded} />
             <Tooltip content={<CustomTooltip />} />
+            {showBenchmark && granularity === 'daily' && (
+              <Area type="monotone" dataKey="benchmark" stroke="#ef4444" fill="#fecaca" fillOpacity={0.35} name="Benchmark" />
+            )}
             <Area type="monotone" dataKey="value" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.3} name="Foot Traffic" />
           </AreaChart>
         </ResponsiveContainer>
@@ -239,7 +297,7 @@ function MetricCard({ title, value, trend, tooltip, type }) {
     } else if (type === 'conversion') {
       return (
         <ResponsiveContainer {...commonProps}>
-          <LineChart data={chartData}>
+          <LineChart data={dataToUse}>
             {isExpanded && <CartesianGrid strokeDasharray="3 3" />}
             <XAxis 
               dataKey="date" 
@@ -249,6 +307,9 @@ function MetricCard({ title, value, trend, tooltip, type }) {
             />
             <YAxis hide={!isExpanded} />
             <Tooltip content={<CustomTooltip />} />
+            {showBenchmark && granularity === 'daily' && (
+              <Line type="monotone" dataKey="benchmark" stroke="#ef4444" strokeDasharray="5 5" strokeWidth={2} dot={!isExpanded ? false : true} name="Benchmark %" />
+            )}
             <Line type="monotone" dataKey="value" stroke="#ec4899" strokeWidth={2} dot={!isExpanded ? false : true} name="Conversion Rate %" />
           </LineChart>
         </ResponsiveContainer>
@@ -256,7 +317,7 @@ function MetricCard({ title, value, trend, tooltip, type }) {
     } else {
       return (
         <ResponsiveContainer {...commonProps}>
-          <LineChart data={chartData}>
+          <LineChart data={dataToUse}>
             {isExpanded && <CartesianGrid strokeDasharray="3 3" />}
             <XAxis 
               dataKey="date" 
@@ -266,6 +327,9 @@ function MetricCard({ title, value, trend, tooltip, type }) {
             />
             <YAxis hide={!isExpanded} />
             <Tooltip content={<CustomTooltip />} />
+            {showBenchmark && granularity === 'daily' && (
+              <Line type="monotone" dataKey="benchmark" stroke="#ef4444" strokeDasharray="5 5" strokeWidth={2} dot={!isExpanded ? false : true} name="Benchmark" />
+            )}
             <Line type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={2} dot={!isExpanded ? false : true} name="Value" />
           </LineChart>
         </ResponsiveContainer>
@@ -366,12 +430,32 @@ function MetricCard({ title, value, trend, tooltip, type }) {
                     {loadingHourly ? 'Loading...' : 'Hourly View'}
                   </button>
                 )}
+                {/* Benchmarking toggle only for daily view */}
+                {granularity === 'daily' && (
+                  <button
+                    onClick={() => setShowBenchmark(prev => !prev)}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      showBenchmark ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    {showBenchmark ? 'Hide benchmarking' : 'Show benchmarking'}
+                  </button>
+                )}
               </div>
 
               {/* Expanded Chart */}
               <div className="h-96 mb-4">
                 {renderChart("100%")}
               </div>
+
+              {/* Info note */}
+              {showBenchmark && granularity === 'daily' && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
+                  <p className="text-sm text-gray-700">
+                    <strong>ℹ️ Info:</strong> Benchmark overlays show estimated industry averages for small retail. Values are mock data with weekday/weekend seasonality for context; use alongside your data for directional comparison.
+                  </p>
+                </div>
+              )}
 
               {/* Info Section */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
