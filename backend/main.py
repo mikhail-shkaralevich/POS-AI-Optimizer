@@ -14,9 +14,23 @@ import os
 import shutil
 from anthropic import Anthropic
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
 
 # Load environment variables
 load_dotenv()
+
+# Initialize database engine when a DATABASE_URL is provided
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    print("[WARNING] DATABASE_URL not set. Database features will be disabled.")
+    db_engine = None
+else:
+    try:
+        db_engine = create_engine(DATABASE_URL)
+        print("[INFO] Database engine initialized")
+    except Exception as exc:
+        print(f"[ERROR] Failed to initialize database engine: {exc}")
+        db_engine = None
 
 app = FastAPI(title="Retail Dashboard API")
 
