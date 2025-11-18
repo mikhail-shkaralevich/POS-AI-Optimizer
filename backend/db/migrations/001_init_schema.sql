@@ -18,3 +18,4 @@ CREATE TABLE businesses (
   description TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
