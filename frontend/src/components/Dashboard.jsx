@@ -139,6 +139,8 @@ function Dashboard() {
         {(activeWidgets.includes('insights') || activeWidgets.includes('prescriptions')) && metrics && (
           <div className="mb-8">
             <InsightsSection 
+              showInsights={activeWidgets.includes('insights')}
+              showPrescriptions={activeWidgets.includes('prescriptions')}
               dashboardData={{
                 businessName: businessName,
                 businessType: "Retail Store",
