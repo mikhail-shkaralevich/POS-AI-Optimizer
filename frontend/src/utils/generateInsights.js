@@ -83,43 +83,30 @@ Return ONLY a valid JSON object with this structure (no markdown, no code blocks
 NOW ANALYZE THE DATA AND GENERATE FRESH, SPECIFIC INSIGHTS IN VALID JSON FORMAT.`;
 };
 
-export async function generateBusinessInsights(businessData, apiKey, isRefresh = false) {
+export async function generateBusinessInsights(businessData, isRefresh = false) {
   try {
-    const prompt = generateInsightsPrompt(businessData);
-    
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    // Call the backend API endpoint instead of Anthropic directly
+    const response = await fetch("http://localhost:8000/api/generate-insights", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 2000,
-        temperature: isRefresh ? 0.8 : 0.7,
-        messages: [
-          { 
-            role: "user", 
-            content: isRefresh 
-              ? `${prompt}\n\nIMPORTANT: This is a REFRESH request. Do not repeat any insights from your previous response. Generate completely new insights based on different aspects of the data.`
-              : prompt
-          }
-        ]
+        businessData: businessData,
+        isRefresh: isRefresh
       })
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`API request failed: ${response.status} - ${errorData.error?.message || response.statusText}`);
+      throw new Error(`API request failed: ${response.status}`);
     }
 
-    const data = await response.json();
-    const insightsText = data.content[0].text;
+    const insights = await response.json();
     
-    // Clean potential markdown code blocks
-    let cleanedText = insightsText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const insights = JSON.parse(cleanedText);
+    // Check if there's an error in the response
+    if (insights.error) {
+      throw new Error(insights.error);
+    }
     
     return insights;
   } catch (error) {

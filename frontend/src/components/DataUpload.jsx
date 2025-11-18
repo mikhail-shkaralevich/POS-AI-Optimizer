@@ -12,89 +12,151 @@ function DataUpload({ onUploadSuccess }) {
 
   const handleShopifyUpload = async () => {
     if (!shopifyFile) {
-      setStatus({ ...status, shopify: { success: false, message: 'Please select a file' } });
+      setStatus(prev => ({ ...prev, shopify: { success: false, message: 'Please select a file' } }));
       return;
     }
 
-    setUploading({ ...uploading, shopify: true });
+    setUploading(prev => ({ ...prev, shopify: true }));
+    setStatus(prev => ({ ...prev, shopify: null })); // Clear previous status
+    
     const formData = new FormData();
     formData.append('file', shopifyFile);
 
     try {
+      console.log('Uploading Shopify file to:', `${API_BASE_URL}/api/upload/shopify`);
       const response = await axios.post(`${API_BASE_URL}/api/upload/shopify`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000 // 30 second timeout for large files
       });
       
-      setStatus({
-        ...status,
-        shopify: {
-          success: true,
-          message: `${response.data.records} transaction records uploaded successfully!`
-        }
-      });
+      console.log('Shopify upload response:', response);
+      
+      if (response.data && response.data.records !== undefined) {
+        setStatus(prev => ({
+          ...prev,
+          shopify: {
+            success: true,
+            message: `${response.data.records} transaction records uploaded successfully!`
+          }
+        }));
+      } else {
+        throw new Error('Invalid response format from server');
+      }
       
       // Clear file selection
       setShopifyFile(null);
-      document.getElementById('shopify-file-input').value = '';
+      const fileInput = document.getElementById('shopify-file-input');
+      if (fileInput) fileInput.value = '';
       
       // Notify parent component to refresh data
       if (onUploadSuccess) {
         setTimeout(() => onUploadSuccess(), 1000);
       }
     } catch (error) {
-      setStatus({
-        ...status,
+      console.error('Shopify upload error details:', {
+        message: error.message,
+        response: error.response,
+        request: error.request,
+        code: error.code
+      });
+      
+      let errorMessage = 'Upload failed. ';
+      if (error.code === 'ECONNABORTED') {
+        errorMessage += 'Request timed out. File may be too large.';
+      } else if (error.code === 'ERR_NETWORK') {
+        errorMessage += 'Network error. Make sure the backend server is running on port 8000.';
+      } else if (error.response) {
+        errorMessage += error.response.data?.detail || `Server error: ${error.response.status}`;
+      } else if (error.request) {
+        errorMessage += 'No response from server. Check if backend is running.';
+      } else {
+        errorMessage += error.message;
+      }
+      
+      setStatus(prev => ({
+        ...prev,
         shopify: {
           success: false,
-          message: error.response?.data?.detail || 'Upload failed'
+          message: errorMessage
         }
-      });
+      }));
     } finally {
-      setUploading({ ...uploading, shopify: false });
+      setUploading(prev => ({ ...prev, shopify: false }));
     }
   };
 
   const handleSensorUpload = async () => {
     if (!sensorFile) {
-      setStatus({ ...status, sensor: { success: false, message: 'Please select a file' } });
+      setStatus(prev => ({ ...prev, sensor: { success: false, message: 'Please select a file' } }));
       return;
     }
 
-    setUploading({ ...uploading, sensor: true });
+    setUploading(prev => ({ ...prev, sensor: true }));
+    setStatus(prev => ({ ...prev, sensor: null })); // Clear previous status
+    
     const formData = new FormData();
     formData.append('file', sensorFile);
 
     try {
+      console.log('Uploading sensor file to:', `${API_BASE_URL}/api/upload/sensor`);
       const response = await axios.post(`${API_BASE_URL}/api/upload/sensor`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000 // 30 second timeout for large files
       });
       
-      setStatus({
-        ...status,
-        sensor: {
-          success: true,
-          message: `${response.data.entries} sensor entries uploaded successfully!`
-        }
-      });
+      console.log('Sensor upload response:', response);
+      
+      if (response.data && response.data.entries !== undefined) {
+        setStatus(prev => ({
+          ...prev,
+          sensor: {
+            success: true,
+            message: `${response.data.entries} sensor entries uploaded successfully!`
+          }
+        }));
+      } else {
+        throw new Error('Invalid response format from server');
+      }
       
       // Clear file selection
       setSensorFile(null);
-      document.getElementById('sensor-file-input').value = '';
+      const fileInput = document.getElementById('sensor-file-input');
+      if (fileInput) fileInput.value = '';
       
       // Notify parent component to refresh data
       if (onUploadSuccess) {
         setTimeout(() => onUploadSuccess(), 1000);
       }
     } catch (error) {
-      setStatus({
-        ...status,
+      console.error('Sensor upload error details:', {
+        message: error.message,
+        response: error.response,
+        request: error.request,
+        code: error.code
+      });
+      
+      let errorMessage = 'Upload failed. ';
+      if (error.code === 'ECONNABORTED') {
+        errorMessage += 'Request timed out. File may be too large.';
+      } else if (error.code === 'ERR_NETWORK') {
+        errorMessage += 'Network error. Make sure the backend server is running on port 8000.';
+      } else if (error.response) {
+        errorMessage += error.response.data?.detail || `Server error: ${error.response.status}`;
+      } else if (error.request) {
+        errorMessage += 'No response from server. Check if backend is running.';
+      } else {
+        errorMessage += error.message;
+      }
+      
+      setStatus(prev => ({
+        ...prev,
         sensor: {
           success: false,
-          message: error.response?.data?.detail || 'Upload failed'
+          message: errorMessage
         }
-      });
+      }));
     } finally {
-      setUploading({ ...uploading, sensor: false });
+      setUploading(prev => ({ ...prev, sensor: false }));
     }
   };
 

@@ -11,13 +11,6 @@ export default function InsightsSection({ dashboardData }) {
     setError(null);
     
     try {
-      // Get API key from environment variable
-      const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-      
-      if (!apiKey || apiKey === 'your_api_key_here') {
-        throw new Error('Please configure your Anthropic API key in the .env file');
-      }
-      
       // Prepare business data from dashboard
       const businessData = {
         businessName: dashboardData.businessName || "Your Store",
@@ -39,7 +32,7 @@ export default function InsightsSection({ dashboardData }) {
         conversionChange: dashboardData.conversionChange || "+0%"
       };
       
-      const newInsights = await generateBusinessInsights(businessData, apiKey, isRefresh);
+      const newInsights = await generateBusinessInsights(businessData, isRefresh);
       setInsights(newInsights);
     } catch (err) {
       console.error("Failed to load insights:", err);
