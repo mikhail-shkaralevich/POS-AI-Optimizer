@@ -13,8 +13,7 @@ CREATE TABLE accounts (
 CREATE TABLE businesses (
   id SERIAL PRIMARY KEY,
   account_id INTEGER NOT NULL REFERENCES accounts(id),
-  name TEXT NOT NULL,                 -- e.g. 'Kira x Miffy'
-  industry TEXT,                      -- e.g. 'boutique', 'cafe'
-  description TEXT,
+  name TEXT NOT NULL,                 
+  industry TEXT,                       -- 'retail', 'restaurant', etc.
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
