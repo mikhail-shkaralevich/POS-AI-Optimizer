@@ -15,9 +15,20 @@ import shutil
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
+import time
+from threading import Lock
 
 # Load environment variables
 load_dotenv()
+
+# Rate limiting for API calls
+api_call_lock = Lock()
+last_api_call_time = 0
+MIN_API_CALL_INTERVAL = 2.0  # Minimum 2 seconds between API calls
+
+# Cache for generated insights
+insights_cache = {}
+CACHE_DURATION = 300  # Cache insights for 5 minutes
 
 ALLOWED_ORIGINS = [
     origin.strip()
@@ -610,62 +621,71 @@ def calculate_foot_traffic(days: int = 120) -> Dict[str, Any]:
     }
 
 def calculate_conversion_rate(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
-    """Calculate conversion rate (transactions / foot traffic from sensor)."""
-    cutoff_date = datetime.now().replace(tzinfo=None) - timedelta(days=days)
+    """Calculate conversion rate (transactions / foot traffic from sensor).
     
-    # Get unique transactions by transaction_id per day
+    Calculates total conversion across ALL data, even if dates don't overlap.
+    This gives a meaningful conversion rate even when transaction and sensor data
+    are from different time periods.
+    """
+    # Count ALL unique transactions (no date restrictions)
+    unique_transaction_ids = set()
     daily_transactions = defaultdict(set)
+    
     for txn in transactions:
         try:
             txn_date = datetime.strptime(txn["timestamp"], "%Y-%m-%d %H:%M:%S")
+            txn_id = txn.get("transaction_id", "")
+            if txn_id:
+                unique_transaction_ids.add(txn_id)
+                day_key = txn_date.strftime("%Y-%m-%d")
+                daily_transactions[day_key].add(txn_id)
         except:
             continue
-        
-        if txn_date >= cutoff_date:
-            day_key = txn_date.strftime("%Y-%m-%d")
-            daily_transactions[day_key].add(txn.get("transaction_id", ""))
     
-    # Get daily foot traffic from sensor (entries only)
+    # Count ALL foot traffic entries (no date restrictions)
+    total_foot_traffic = 0
     daily_traffic = defaultdict(int)
+    
     for entry in sensor_data["entries"]:
         try:
             entry_date = datetime.fromisoformat(entry["timestamp"]).replace(tzinfo=None)
+            if entry.get("direction") == 1:  # Only count entries (direction=1)
+                total_foot_traffic += 1
+                day_key = entry_date.strftime("%Y-%m-%d")
+                daily_traffic[day_key] += 1
         except:
             continue
-        
-        if entry_date >= cutoff_date and entry.get("direction") == 1:
-            day_key = entry_date.strftime("%Y-%m-%d")
-            daily_traffic[day_key] += 1
     
-    # Calculate daily conversion rates
+    # Calculate TOTAL conversion rate across all data
+    total_transactions = len(unique_transaction_ids)
+    overall_conversion = (total_transactions / total_foot_traffic * 100) if total_foot_traffic > 0 else 0
+    overall_conversion = min(overall_conversion, 100)  # Cap at 100%
+    
+    print(f"[DEBUG] Total transactions: {total_transactions}")
+    print(f"[DEBUG] Total foot traffic: {total_foot_traffic}")
+    print(f"[DEBUG] Overall conversion: {overall_conversion}%")
+    
+    # Build trend data (will show 0% for non-overlapping dates)
     trend_data = []
-    total_transactions = 0
-    total_traffic = 0
-    
     all_dates = sorted(set(list(daily_transactions.keys()) + list(daily_traffic.keys())))
     
     for date in all_dates:
         transactions_count = len(daily_transactions.get(date, set()))
         traffic_count = daily_traffic.get(date, 0)
         
-        # Only calculate conversion if traffic > 0 and transactions <= traffic (valid data)
-        if traffic_count > 0 and transactions_count <= traffic_count:
-            conversion = (transactions_count / traffic_count * 100)
+        # Include all days in trend, even if only one metric exists
+        if transactions_count > 0 or traffic_count > 0:
+            if traffic_count > 0:
+                conversion = min((transactions_count / traffic_count * 100), 100)
+            else:
+                conversion = 0  # No traffic on this day
             trend_data.append({"date": date, "value": round(conversion, 1)})
-            total_transactions += transactions_count
-            total_traffic += traffic_count
-        elif traffic_count > 0:
-            # Skip days where sensor data appears incomplete (transactions > traffic)
-            # Don't add to trend or totals
-            pass
-    
-    overall_conversion = (total_transactions / total_traffic * 100) if total_traffic > 0 else 0
     
     return {
         "rate": round(overall_conversion, 1),
         "trend": trend_data,
         "transactions": total_transactions,
-        "foot_traffic": total_traffic
+        "foot_traffic": total_foot_traffic
     }
 
 def calculate_hourly_revenue(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
@@ -925,6 +945,164 @@ def get_prescriptions():
     """Get prescriptive recommendations."""
     transactions = mock_data["transactions"]
     return {"prescriptions": generate_prescriptions(transactions)}
+
+@app.post("/api/generate-insights")
+def generate_ai_insights(request: dict):
+    """Generate AI-powered insights using Claude API with rate limiting and caching."""
+    global last_api_call_time
+    
+    try:
+        # Check if Anthropic client is initialized
+        if anthropic_client is None:
+            return {
+                "error": "Anthropic API is not configured. Please set your ANTHROPIC_API_KEY in the backend/.env file."
+            }
+        
+        # Get the business data from request
+        business_data = request.get("businessData", {})
+        is_refresh = request.get("isRefresh", False)
+        
+        # Generate cache key based on business data (excluding time-sensitive fields)
+        cache_key = f"{business_data.get('totalRevenue', 0)}_{business_data.get('transactions', 0)}_{business_data.get('conversionRate', 0)}_{is_refresh}"
+        
+        # Check cache first (skip cache if it's a refresh request)
+        if not is_refresh and cache_key in insights_cache:
+            cached_data = insights_cache[cache_key]
+            if time.time() - cached_data['timestamp'] < CACHE_DURATION:
+                print("[INFO] Returning cached insights")
+                return cached_data['data']
+        
+        # Rate limiting: ensure minimum interval between API calls
+        with api_call_lock:
+            time_since_last_call = time.time() - last_api_call_time
+            if time_since_last_call < MIN_API_CALL_INTERVAL:
+                wait_time = MIN_API_CALL_INTERVAL - time_since_last_call
+                print(f"[INFO] Rate limiting: waiting {wait_time:.2f}s before API call")
+                time.sleep(wait_time)
+            
+            last_api_call_time = time.time()
+        
+        # Build the prompt
+        prompt = f"""You are an expert retail analytics consultant analyzing data for a small-to-mid-sized retail business. Your role is to identify actionable insights and provide prescriptive recommendations based on their actual business data.
+
+## BUSINESS CONTEXT
+Business Name: {business_data.get('businessName', 'This Store')}
+Business Type: {business_data.get('businessType', 'Retail Store')}
+Location: {business_data.get('location', 'Hawaii')}
+Customer Mix: {business_data.get('customerMix', 'Mixed local and tourist')}
+Current Date: {datetime.now().strftime('%B %d, %Y')}
+
+## CURRENT BUSINESS DATA
+Time Period: {business_data.get('timePeriod', 'Last 7 Days')}
+
+Key Metrics:
+- Total Revenue: ${business_data.get('totalRevenue', 0):,.2f}
+- Foot Traffic: {business_data.get('footTraffic', 0):,} visitors
+- Transactions: {business_data.get('transactions', 0)}
+- Conversion Rate: {business_data.get('conversionRate', 0)}%
+- Average Transaction Value: ${business_data.get('avgTransactionValue', 0):.2f}
+- Peak Traffic Hours: {business_data.get('peakHours', 'Unknown')}
+- Peak Sales Hours: {business_data.get('peakSalesHours', 'Unknown')}
+
+{f"Top Sellers: {', '.join(business_data.get('topProducts', []))}" if business_data.get('topProducts') else ''}
+{f"Slow-Moving Items: {', '.join(business_data.get('slowMovers', []))}" if business_data.get('slowMovers') else ''}
+
+Historical Comparison:
+- Revenue vs Last Period: {business_data.get('revenueChange', 'N/A')}
+- Traffic vs Last Period: {business_data.get('trafficChange', 'N/A')}
+- Conversion vs Last Period: {business_data.get('conversionChange', 'N/A')}
+
+## YOUR TASK
+Generate insights in TWO categories:
+
+### 1. INTERESTING INSIGHTS (3-4 insights)
+Identify notable patterns, trends, or anomalies in the data. These should be:
+- Specific to their actual numbers
+- Surprising or non-obvious
+- Based on data comparisons
+- Focused on "what's happening" with brief "why it matters"
+
+### 2. PRESCRIPTIVE INSIGHTS (3-4 recommendations)
+Provide actionable recommendations. These should be:
+- Specific, concrete actions (not vague suggestions)
+- Directly tied to their data patterns
+- Prioritized by potential impact
+- Include expected outcome when possible
+- Address: dead inventory, staffing optimization, missed opportunities, promotion effectiveness, local vs tourist targeting
+
+## IMPORTANT GUIDELINES
+- Never repeat the same insight twice - always provide fresh analysis
+- Use their actual numbers in your insights
+- Prioritize insights that can save time or increase revenue
+- Focus on problems they can actually solve
+- Be direct and confident in your recommendations
+- Consider Hawaii's unique retail context (tourist/local dynamics, seasonal patterns)
+- Reference specific time periods, percentages, and dollar amounts
+- Avoid obvious statements - explain WHY and WHAT TO DO
+
+## OUTPUT FORMAT
+Return ONLY a valid JSON object with this structure (no markdown, no code blocks):
+
+{{
+  "interestingInsights": [
+    {{
+      "title": "Brief headline (5-8 words)",
+      "description": "2-3 sentence explanation with specific numbers and why it matters",
+      "priority": "high",
+      "category": "conversion"
+    }}
+  ],
+  "prescriptiveInsights": [
+    {{
+      "title": "Action-oriented headline starting with verb",
+      "description": "2-3 sentences explaining what to do, how to do it, and expected impact",
+      "priority": "high",
+      "actionType": "immediate",
+      "category": "staffing",
+      "estimatedImpact": "Brief statement of expected benefit"
+    }}
+  ]
+}}
+
+{"IMPORTANT: This is a REFRESH request. Do not repeat any insights from your previous response. Generate completely new insights based on different aspects of the data." if is_refresh else ""}
+
+NOW ANALYZE THE DATA AND GENERATE FRESH, SPECIFIC INSIGHTS IN VALID JSON FORMAT."""
+
+        # Call Claude AI
+        print(f"[INFO] Making API call to Claude (refresh={is_refresh})")
+        response = anthropic_client.messages.create(
+            model=ANTHROPIC_MODEL,
+            max_tokens=1500,  # Reduced to use fewer tokens
+            temperature=0.8 if is_refresh else 0.7,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+        
+        # Extract and parse the response
+        insights_text = response.content[0].text
+        
+        # Clean potential markdown code blocks
+        cleaned_text = insights_text.replace("```json\n", "").replace("```\n", "").replace("```", "").strip()
+        insights = json.loads(cleaned_text)
+        
+        # Cache the result (even for refresh requests)
+        insights_cache[cache_key] = {
+            'data': insights,
+            'timestamp': time.time()
+        }
+        
+        print(f"[INFO] Successfully generated and cached insights")
+        return insights
+        
+    except Exception as e:
+        print(f"[ERROR] Generate insights error: {e}")
+        return {
+            "error": str(e)
+        }
 
 @app.post("/api/chat")
 def chat(message: ChatMessage):

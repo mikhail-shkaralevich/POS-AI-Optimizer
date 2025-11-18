@@ -17,3 +17,4 @@ CREATE TABLE businesses (
   industry TEXT,                       -- 'retail', 'restaurant', etc.
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+

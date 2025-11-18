@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Header from './Header';
 import MetricCard from './MetricCard';
-import InsightsCard from './InsightsCard';
+import InsightsSection from './InsightsSection';
 import ComparisonsCard from './ComparisonsCard';
-import PrescriptionsCard from './PrescriptionsCard';
 import OtherMetricsCard from './OtherMetricsCard';
 import ChatBot from './ChatBot';
 import DataUpload from './DataUpload';
@@ -15,9 +14,7 @@ const API_BASE_URL = 'http://localhost:8000';
 function Dashboard() {
   const [businessName, setBusinessName] = useState('');
   const [metrics, setMetrics] = useState(null);
-  const [insights, setInsights] = useState([]);
   const [comparisons, setComparisons] = useState([]);
-  const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeWidgets, setActiveWidgets] = useState([]);
 
@@ -42,19 +39,15 @@ function Dashboard() {
       setLoading(true);
       
       // Fetch all data in parallel
-      const [businessInfoRes, metricsRes, insightsRes, comparisonsRes, prescriptionsRes] = await Promise.all([
+      const [businessInfoRes, metricsRes, comparisonsRes] = await Promise.all([
         axios.get(`${API_BASE_URL}/api/business-info`),
         axios.get(`${API_BASE_URL}/api/metrics`),
-        axios.get(`${API_BASE_URL}/api/insights`),
-        axios.get(`${API_BASE_URL}/api/comparisons`),
-        axios.get(`${API_BASE_URL}/api/prescriptions`)
+        axios.get(`${API_BASE_URL}/api/comparisons`)
       ]);
 
       setBusinessName(businessInfoRes.data.business_name);
       setMetrics(metricsRes.data);
-      setInsights(insightsRes.data.insights);
       setComparisons(comparisonsRes.data.comparisons);
-      setPrescriptions(prescriptionsRes.data.prescriptions);
       
       setLoading(false);
     } catch (error) {
@@ -142,18 +135,39 @@ function Dashboard() {
           </div>
         )}
 
-        {/* Analytics Section - Conditionally Render */}
-        {(activeWidgets.includes('insights') || activeWidgets.includes('comparisons')) && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            {activeWidgets.includes('insights') && <InsightsCard insights={insights} />}
-            {activeWidgets.includes('comparisons') && <ComparisonsCard comparisons={comparisons} />}
+        {/* AI-Powered Insights Section */}
+        {(activeWidgets.includes('insights') || activeWidgets.includes('prescriptions')) && metrics && (
+          <div className="mb-8">
+            <InsightsSection 
+              dashboardData={{
+                businessName: businessName,
+                businessType: "Retail Store",
+                location: "Honolulu, HI",
+                customerMix: "Mixed local and tourist",
+                timePeriod: metrics?.date_range || "Last 7 Days",
+                totalRevenue: metrics?.revenue?.total || 0,
+                footTraffic: metrics?.foot_traffic?.total || 0,
+                transactions: metrics?.revenue?.total && metrics?.atv?.value 
+                  ? Math.round(metrics.revenue.total / parseFloat(metrics.atv.value)) 
+                  : 0,
+                conversionRate: parseFloat(metrics?.conversion_rate?.rate) || 0,
+                avgTransactionValue: parseFloat(metrics?.atv?.value) || 0,
+                peakHours: "2pm-4pm",
+                peakSalesHours: "11am-1pm",
+                topProducts: metrics?.top_selling_item ? [metrics.top_selling_item] : [],
+                slowMovers: [],
+                revenueChange: "+0%",
+                trafficChange: "+0%",
+                conversionChange: "+0%"
+              }}
+            />
           </div>
         )}
 
-        {/* Prescriptions & Other Metrics - Conditionally Render */}
-        {(activeWidgets.includes('prescriptions') || activeWidgets.includes('otherMetrics')) && (
+        {/* Comparisons & Other Metrics - Conditionally Render */}
+        {(activeWidgets.includes('comparisons') || activeWidgets.includes('otherMetrics')) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            {activeWidgets.includes('prescriptions') && <PrescriptionsCard prescriptions={prescriptions} />}
+            {activeWidgets.includes('comparisons') && <ComparisonsCard comparisons={comparisons} />}
             {activeWidgets.includes('otherMetrics') && (
               <OtherMetricsCard
                 topSellingItem={metrics?.top_selling_item || 'N/A'}
