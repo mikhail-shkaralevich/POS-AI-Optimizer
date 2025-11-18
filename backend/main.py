@@ -19,25 +19,34 @@ from sqlalchemy import create_engine
 # Load environment variables
 load_dotenv()
 
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:3000",
+    ).split(",")
+    if origin.strip()
+]
+
 # Initialize database engine when a DATABASE_URL is provided
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     print("[WARNING] DATABASE_URL not set. Database features will be disabled.")
-    db_engine = None
+    engine = None
 else:
     try:
-        db_engine = create_engine(DATABASE_URL)
+        engine = create_engine(DATABASE_URL)
         print("[INFO] Database engine initialized")
     except Exception as exc:
         print(f"[ERROR] Failed to initialize database engine: {exc}")
-        db_engine = None
+        engine = None
 
 app = FastAPI(title="Retail Dashboard API")
 
 # Enable CORS for frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:3000"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
