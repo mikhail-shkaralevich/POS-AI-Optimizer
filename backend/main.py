@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict, Counter
 import json
 import os
@@ -235,7 +235,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
         if exp is None:
             raise HTTPException(status_code=401, detail="Invalid token: missing expiration")
         
-        if datetime.utcnow() > datetime.fromtimestamp(exp):
+        if datetime.now(timezone.utc) > datetime.fromtimestamp(exp, tz=timezone.utc):
             raise HTTPException(status_code=401, detail="Token has expired")
         
         return payload

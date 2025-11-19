@@ -101,7 +101,6 @@ export async function generateBusinessInsights(businessData, isRefresh = false) 
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}`
       },
-      },
       body: JSON.stringify({
         businessData: businessData,
         isRefresh: isRefresh
