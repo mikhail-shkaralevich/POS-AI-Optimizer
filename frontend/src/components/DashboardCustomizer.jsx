@@ -10,6 +10,7 @@ const AVAILABLE_WIDGETS = [
   { id: 'comparisons', title: 'Comparisons', category: 'analytics' },
   { id: 'prescriptions', title: 'Prescriptions', category: 'analytics' },
   { id: 'otherMetrics', title: 'Other Metrics', category: 'analytics' },
+  { id: 'inventory', title: 'Inventory Insights', category: 'analytics' },
   { id: 'topProducts', title: 'Top Products', category: 'custom' },
   { id: 'hourlyRevenue', title: 'Hourly Revenue', category: 'custom' },
   { id: 'chatbot', title: 'AI Chatbot', category: 'tools' },
@@ -30,7 +31,7 @@ function DashboardCustomizer({ onWidgetsChange }) {
       setActiveWidgets(JSON.parse(saved));
     } else {
       // Default widgets (insights OFF by default to save API calls)
-      setActiveWidgets(['revenue', 'atv', 'customers', 'footTraffic', 'conversion', 'comparisons', 'prescriptions', 'otherMetrics']);
+      setActiveWidgets(['revenue', 'atv', 'customers', 'footTraffic', 'conversion', 'comparisons', 'prescriptions', 'otherMetrics', 'inventory']);
     }
   }, []);
 
@@ -52,7 +53,7 @@ function DashboardCustomizer({ onWidgetsChange }) {
   };
 
   const resetToDefault = () => {
-    const defaults = ['revenue', 'atv', 'customers', 'footTraffic', 'conversion', 'insights', 'comparisons', 'prescriptions', 'otherMetrics'];
+    const defaults = ['revenue', 'atv', 'customers', 'footTraffic', 'conversion', 'insights', 'comparisons', 'prescriptions', 'otherMetrics', 'inventory'];
     saveLayout(defaults);
     if (onWidgetsChange) {
       onWidgetsChange(defaults);

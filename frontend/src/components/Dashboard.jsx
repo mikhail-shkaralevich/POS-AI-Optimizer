@@ -10,6 +10,7 @@ import DataUpload from './DataUpload';
 import DashboardCustomizer from './DashboardCustomizer';
 import TopProductsCard from './metrics/TopProductsCard';
 import HourlyRevenueCard from './metrics/HourlyRevenueCard';
+import InventoryInsights from './InventoryInsights';
 import { calculateTopProducts, calculateHourlyRevenue } from '../utils/metricCalculations';
 
 function Dashboard() {
@@ -27,7 +28,7 @@ function Dashboard() {
       setActiveWidgets(JSON.parse(saved));
     } else {
       // Default widgets (insights OFF by default to save API calls)
-      setActiveWidgets(['revenue', 'atv', 'customers', 'footTraffic', 'conversion', 'comparisons', 'prescriptions', 'otherMetrics']);
+      setActiveWidgets(['revenue', 'atv', 'customers', 'footTraffic', 'conversion', 'comparisons', 'prescriptions', 'otherMetrics', 'inventory']);
     }
     fetchData();
   }, []);
@@ -203,6 +204,13 @@ function Dashboard() {
             {activeWidgets.includes('hourlyRevenue') && (
               <HourlyRevenueCard data={hourlyRevenue} />
             )}
+          </div>
+        )}
+
+        {/* Inventory Insights Section */}
+        {activeWidgets.includes('inventory') && (
+          <div className="mb-8">
+            <InventoryInsights />
           </div>
         )}
       </main>

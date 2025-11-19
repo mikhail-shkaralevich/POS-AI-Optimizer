@@ -126,6 +126,7 @@ def load_shopify_data():
                         "quantity": int(row.get("Qty", 0)) if row.get("Qty") else 0,
                         "location": row.get("Location", ""),
                         "device": row.get("Device Name", ""),
+                        "variant": row.get("Price Point Name", ""),  # Add variant field
                     }
                     transactions.append(transaction)
                 except Exception as e:
@@ -1248,6 +1249,196 @@ NOW ANALYZE THE DATA AND GENERATE FRESH, SPECIFIC INSIGHTS IN VALID JSON FORMAT.
         return {
             "error": str(e)
         }
+
+@app.get("/api/inventory-insights")
+def get_inventory_insights(payload: dict = Depends(verify_token)):
+    """Get inventory insights including sales velocity, slow movers, and variant analysis."""
+    try:
+        transactions = mock_data["transactions"]
+        
+        if not transactions:
+            return {
+                "salesVelocity": [],
+                "slowMovers": [],
+                "variantAnalysis": []
+            }
+        
+        # Calculate date range
+        dates = []
+        for txn in transactions:
+            try:
+                txn_date = datetime.strptime(txn["timestamp"], "%Y-%m-%d %H:%M:%S")
+                dates.append(txn_date)
+            except:
+                continue
+        
+        if not dates:
+            return {
+                "salesVelocity": [],
+                "slowMovers": [],
+                "variantAnalysis": []
+            }
+        
+        earliest_date = min(dates)
+        latest_date = max(dates)
+        days_range = (latest_date - earliest_date).days + 1
+        
+        # 1. SALES VELOCITY ANALYSIS
+        product_stats = defaultdict(lambda: {"units": 0, "revenue": 0, "variants": defaultdict(int), "last_sale": None})
+        
+        for txn in transactions:
+            item_name = txn.get("item_name", "Unknown")
+            variant = txn.get("category", "") or "Standard"
+            quantity = txn.get("quantity", 0)
+            revenue = txn.get("net_sales", 0)
+            
+            if not item_name or item_name.lower() == "bag fee":
+                continue
+            
+            try:
+                txn_date = datetime.strptime(txn["timestamp"], "%Y-%m-%d %H:%M:%S")
+                product_stats[item_name]["last_sale"] = max(
+                    product_stats[item_name]["last_sale"] or txn_date,
+                    txn_date
+                )
+            except:
+                pass
+            
+            product_stats[item_name]["units"] += quantity
+            product_stats[item_name]["revenue"] += revenue
+            product_stats[item_name]["variants"][variant] += quantity
+        
+        # Calculate velocity and prepare sales velocity data
+        sales_velocity = []
+        for product, stats in product_stats.items():
+            velocity = round(stats["units"] / days_range, 2) if days_range > 0 else 0
+            
+            # Get primary variant
+            primary_variant = max(stats["variants"].items(), key=lambda x: x[1])[0] if stats["variants"] else None
+            
+            sales_velocity.append({
+                "product": product,
+                "variant": primary_variant,
+                "totalSold": stats["units"],
+                "velocity": velocity,
+                "revenue": round(stats["revenue"], 2)
+            })
+        
+        # Sort by velocity (descending)
+        sales_velocity.sort(key=lambda x: x["velocity"], reverse=True)
+        sales_velocity = sales_velocity[:30]  # Top 30 items
+        
+        # 2. SLOW MOVERS ANALYSIS
+        slow_movers = []
+        for product, stats in product_stats.items():
+            velocity = stats["units"] / days_range if days_range > 0 else 0
+            
+            # Calculate days since last sale
+            days_since_last = 0
+            if stats["last_sale"]:
+                days_since_last = (latest_date - stats["last_sale"]).days
+            
+            # Identify slow movers: velocity < 0.2 per day OR no sale in 14+ days
+            if velocity < 0.2 or days_since_last > 14:
+                primary_variant = max(stats["variants"].items(), key=lambda x: x[1])[0] if stats["variants"] else None
+                
+                # Generate recommendation
+                if days_since_last > 30:
+                    recommendation = "Consider 30-50% markdown or bundle with popular items"
+                elif days_since_last > 14:
+                    recommendation = "Feature prominently at point-of-sale or offer 20% discount"
+                elif velocity < 0.1:
+                    recommendation = "Very slow mover - consider clearance or return to supplier"
+                else:
+                    recommendation = "Monitor closely - may need promotional support"
+                
+                slow_movers.append({
+                    "product": product,
+                    "variant": primary_variant,
+                    "totalSold": stats["units"],
+                    "velocity": round(velocity, 2),
+                    "daysSinceLastSale": days_since_last,
+                    "recommendation": recommendation
+                })
+        
+        # Sort by days since last sale (descending)
+        slow_movers.sort(key=lambda x: x["daysSinceLastSale"], reverse=True)
+        slow_movers = slow_movers[:20]  # Top 20 slow movers
+        
+        # 3. VARIANT ANALYSIS
+        # Group by product and analyze variants
+        product_variants = defaultdict(lambda: {"variants": defaultdict(lambda: {"units": 0, "revenue": 0}), "total_units": 0, "total_revenue": 0})
+        
+        for txn in transactions:
+            item_name = txn.get("item_name", "Unknown")
+            variant = txn.get("variant", "").strip() or "Standard"
+            quantity = txn.get("quantity", 0)
+            revenue = txn.get("net_sales", 0)
+            
+            if not item_name or item_name.lower() == "bag fee":
+                continue
+            
+            product_variants[item_name]["variants"][variant]["units"] += quantity
+            product_variants[item_name]["variants"][variant]["revenue"] += revenue
+            product_variants[item_name]["total_units"] += quantity
+            product_variants[item_name]["total_revenue"] += revenue
+        
+        # Prepare variant analysis data
+        variant_analysis = []
+        for product, data in product_variants.items():
+            # Only include products with multiple variants
+            if len(data["variants"]) < 2:
+                continue
+            
+            variants_list = []
+            for variant, stats in data["variants"].items():
+                percent = round((stats["units"] / data["total_units"]) * 100, 1) if data["total_units"] > 0 else 0
+                variants_list.append({
+                    "variant": variant,
+                    "units": stats["units"],
+                    "revenue": round(stats["revenue"], 2),
+                    "percentOfTotal": percent
+                })
+            
+            # Sort variants by units sold
+            variants_list.sort(key=lambda x: x["units"], reverse=True)
+            
+            # Generate recommendation
+            top_variant_percent = variants_list[0]["percentOfTotal"] if variants_list else 0
+            recommendation = None
+            
+            if top_variant_percent > 60:
+                recommendation = f"Focus inventory on top variant - it represents {top_variant_percent}% of sales"
+            elif len([v for v in variants_list if v["percentOfTotal"] < 5]) > 0:
+                recommendation = "Consider discontinuing variants with less than 5% of sales"
+            else:
+                recommendation = "Balanced variant distribution - maintain current mix"
+            
+            variant_analysis.append({
+                "product": product,
+                "totalSold": data["total_units"],
+                "totalRevenue": round(data["total_revenue"], 2),
+                "variantCount": len(variants_list),
+                "variants": variants_list[:10],  # Top 10 variants
+                "topVariant": variants_list[0] if variants_list else None,
+                "recommendation": recommendation
+            })
+        
+        # Sort by total revenue
+        variant_analysis.sort(key=lambda x: x["totalRevenue"], reverse=True)
+        variant_analysis = variant_analysis[:15]  # Top 15 products
+        
+        return {
+            "salesVelocity": sales_velocity,
+            "slowMovers": slow_movers,
+            "variantAnalysis": variant_analysis
+        }
+        
+    except Exception as e:
+        print(f"[ERROR] Inventory insights error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to generate inventory insights: {str(e)}")
 
 @app.post("/api/chat")
 def chat(message: ChatMessage, payload: dict = Depends(verify_token)):
