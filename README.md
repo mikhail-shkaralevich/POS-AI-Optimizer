@@ -90,7 +90,21 @@ The application requires configuration for both AI chatbot and security:
      MAX_TOKENS=4096
      ```
 
-5. **Available AI Models**:
+5. **Configure CORS (Required for production deployments)**:
+   ```properties
+   # ALLOWED_ORIGINS - Comma-separated list of allowed frontend URLs
+   # For local development (default if not set):
+   # http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173
+   
+   # For Railway deployment (example):
+   ALLOWED_ORIGINS=https://pos-optimizer.up.railway.app,http://localhost:5173
+   
+   # For multiple production domains:
+   # ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+   ```
+   **Important**: When deploying your backend, make sure to include your frontend's production URL in `ALLOWED_ORIGINS` to avoid CORS errors.
+
+6. **Available AI Models**:
    - `claude-sonnet-4-20250514` - Claude Sonnet 4 (latest, recommended)
    - `claude-3-5-sonnet-20241022` - Claude 3.5 Sonnet
    - `claude-3-opus-20240229` - Claude 3 Opus (most capable)
@@ -113,7 +127,9 @@ npm install
 
 **Configure Frontend Environment Variables:**
 
-1. Open the `.env` file in the `frontend` directory (or create one from `.env.example`)
+The frontend only requires one environment variable:
+
+1. Open the `.env` file in the `frontend` directory (or create one)
 2. Set the backend API URL:
    ```properties
    # For local development
@@ -123,7 +139,10 @@ npm install
    # VITE_API_BASE_URL=https://your-backend.railway.app
    ```
 
-**Note**: Vite requires environment variables to be prefixed with `VITE_` to be accessible in the frontend code.
+**Important Notes**:
+- Vite requires environment variables to be prefixed with `VITE_` to be accessible in the frontend code
+- The Anthropic API key is NOT needed in the frontend - it's only used by the backend
+- When deploying to Railway or other platforms, set `VITE_API_BASE_URL` as an environment variable in your deployment platform
 
 ### 5. Running the Application
 
@@ -304,6 +323,49 @@ For this MVP, the "AI" features include:
 - Prescriptions are dynamically generated based on your actual product catalog
 - Conversion rate calculation automatically filters out days with incomplete sensor data
 - Ready to integrate with advanced ML models and real-time data streams
+
+## Deployment Guide
+
+### Railway Deployment Checklist
+
+When deploying your application to production (e.g., Railway), ensure you configure the following:
+
+**Backend Deployment:**
+1. Set all required environment variables:
+   - `SECURITY_CODE`
+   - `JWT_SECRET_KEY`
+   - `ANTHROPIC_API_KEY`
+   - `ANTHROPIC_MODEL` (optional)
+   - `MAX_TOKENS` (optional)
+   - **`ALLOWED_ORIGINS`** - Include your frontend's production URL
+   
+   Example:
+   ```
+   ALLOWED_ORIGINS=https://pos-optimizer.up.railway.app
+   ```
+
+**Frontend Deployment:**
+1. Set `VITE_API_BASE_URL` to your deployed backend URL:
+   ```
+   VITE_API_BASE_URL=https://your-backend.railway.app
+   ```
+
+### Common Deployment Issues
+
+**CORS Error: "has been blocked by CORS policy"**
+- **Cause**: Frontend calling wrong backend URL or backend not configured to allow frontend origin
+- **Solution**: 
+  1. Check frontend `VITE_API_BASE_URL` points to deployed backend (not localhost)
+  2. Add frontend URL to backend `ALLOWED_ORIGINS` environment variable
+  3. Redeploy both frontend and backend after changes
+
+**401 Unauthorized on Login**
+- **Cause**: JWT_SECRET_KEY mismatch or incorrect SECURITY_CODE
+- **Solution**: Verify both environment variables are set correctly in backend deployment
+
+**Chatbot Not Responding**
+- **Cause**: Invalid or missing ANTHROPIC_API_KEY
+- **Solution**: Check API key is valid and set in backend environment variables
 
 ## Future Enhancements
 
