@@ -5,6 +5,7 @@ function InventoryInsights() {
   const [inventoryData, setInventoryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState('velocity'); // 'velocity', 'slowMovers', 'variants'
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchInventoryData();
@@ -42,6 +43,43 @@ function InventoryInsights() {
       {/* Header with View Toggles */}
       <div className="border-b border-gray-200 px-6 py-4">
         <h2 className="text-xl font-bold text-gray-900 mb-3">Inventory Insights</h2>
+        
+        {/* Search Bar */}
+        <div className="mb-3">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search by item name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            />
+            <svg
+              className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+        
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setActiveView('velocity')}
@@ -79,28 +117,48 @@ function InventoryInsights() {
       {/* Content Area */}
       <div className="p-6">
         {activeView === 'velocity' && (
-          <SalesVelocityView data={inventoryData?.salesVelocity} />
+          <SalesVelocityView data={inventoryData?.salesVelocity} searchQuery={searchQuery} />
         )}
         {activeView === 'slowMovers' && (
-          <SlowMoversView data={inventoryData?.slowMovers} />
+          <SlowMoversView data={inventoryData?.slowMovers} searchQuery={searchQuery} />
         )}
         {activeView === 'variants' && (
-          <VariantAnalysisView data={inventoryData?.variantAnalysis} />
+          <VariantAnalysisView data={inventoryData?.variantAnalysis} searchQuery={searchQuery} />
         )}
       </div>
     </div>
   );
 }
 
-function SalesVelocityView({ data }) {
+function SalesVelocityView({ data, searchQuery }) {
   if (!data || data.length === 0) {
     return <p className="text-gray-500 text-center py-8">No sales velocity data available</p>;
+  }
+
+  // Filter data based on search query
+  const filteredData = searchQuery
+    ? data.filter(item => 
+        item.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.variant && item.variant.toLowerCase().includes(searchQuery.toLowerCase()))
+      )
+    : data;
+
+  if (filteredData.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-gray-500 mb-2">No results found for "{searchQuery}"</p>
+        <p className="text-sm text-gray-400">Try a different search term</p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Top Products by Sales Velocity</h3>
+        <h3 className="text-lg font-semibold text-gray-900">
+          Top Products by Sales Velocity
+          {searchQuery && <span className="text-sm font-normal text-gray-500 ml-2">({filteredData.length} results)</span>}
+        </h3>
         <span className="text-sm text-gray-500">Units sold per day</span>
       </div>
       
@@ -129,7 +187,7 @@ function SalesVelocityView({ data }) {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {data.map((item, index) => (
+            {filteredData.map((item, index) => (
               <tr key={index} className="hover:bg-gray-50">
                 <td className="px-4 py-3 text-sm font-medium text-gray-900">
                   {item.product}
@@ -173,7 +231,7 @@ function SalesVelocityView({ data }) {
   );
 }
 
-function SlowMoversView({ data }) {
+function SlowMoversView({ data, searchQuery }) {
   if (!data || data.length === 0) {
     return (
       <div className="text-center py-8">
@@ -183,15 +241,35 @@ function SlowMoversView({ data }) {
     );
   }
 
+  // Filter data based on search query
+  const filteredData = searchQuery
+    ? data.filter(item => 
+        item.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.variant && item.variant.toLowerCase().includes(searchQuery.toLowerCase()))
+      )
+    : data;
+
+  if (filteredData.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-gray-500 mb-2">No results found for "{searchQuery}"</p>
+        <p className="text-sm text-gray-400">Try a different search term</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Slow-Moving Inventory</h3>
+        <h3 className="text-lg font-semibold text-gray-900">
+          Slow-Moving Inventory
+          {searchQuery && <span className="text-sm font-normal text-gray-500 ml-2">({filteredData.length} results)</span>}
+        </h3>
         <span className="text-sm text-gray-500">Needs attention</span>
       </div>
 
       <div className="grid gap-4">
-        {data.map((item, index) => (
+        {filteredData.map((item, index) => (
           <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-start">
               <div className="flex-1">
@@ -243,19 +321,39 @@ function SlowMoversView({ data }) {
   );
 }
 
-function VariantAnalysisView({ data }) {
+function VariantAnalysisView({ data, searchQuery }) {
   if (!data || data.length === 0) {
     return <p className="text-gray-500 text-center py-8">No variant data available</p>;
+  }
+
+  // Filter data based on search query
+  const filteredData = searchQuery
+    ? data.filter(product => 
+        product.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.variants.some(v => v.variant && v.variant.toLowerCase().includes(searchQuery.toLowerCase()))
+      )
+    : data;
+
+  if (filteredData.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-gray-500 mb-2">No results found for "{searchQuery}"</p>
+        <p className="text-sm text-gray-400">Try a different search term</p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Product Variant Performance</h3>
+        <h3 className="text-lg font-semibold text-gray-900">
+          Product Variant Performance
+          {searchQuery && <span className="text-sm font-normal text-gray-500 ml-2">({filteredData.length} results)</span>}
+        </h3>
         <span className="text-sm text-gray-500">Compare variants within products</span>
       </div>
 
-      {data.map((product, index) => (
+      {filteredData.map((product, index) => (
         <div key={index} className="border border-gray-200 rounded-lg p-5">
           <div className="mb-4">
             <h4 className="font-bold text-gray-900 text-lg">{product.product}</h4>
