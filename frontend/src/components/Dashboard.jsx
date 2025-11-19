@@ -41,7 +41,7 @@ function Dashboard() {
       setLoading(true);
       
       // Fetch all data in parallel using apiClient with JWT
-      const [businessInfoRes, metricsRes, comparisonsRes] = await Promise.all([
+      const [businessInfoRes, metricsRes, comparisonsRes, transactionsRes] = await Promise.all([
         apiClient.get('/api/business-info'),
         apiClient.get('/api/metrics'),
         apiClient.get('/api/comparisons'),

@@ -999,7 +999,7 @@ def get_business_info(payload: dict = Depends(verify_token)):
     return {"business_name": mock_data["business_name"]}
 
 @app.get("/api/transactions")
-def get_transactions():
+def get_transactions(payload: dict = Depends(verify_token)):
     """Get raw transaction data for custom metrics."""
     transactions = mock_data["transactions"]
     return {
