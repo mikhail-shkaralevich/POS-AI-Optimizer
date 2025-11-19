@@ -88,11 +88,19 @@ NOW ANALYZE THE DATA AND GENERATE FRESH, SPECIFIC INSIGHTS IN VALID JSON FORMAT.
 
 export async function generateBusinessInsights(businessData, isRefresh = false) {
   try {
-    // Call the backend API endpoint instead of Anthropic directly
+    // Get JWT token from localStorage
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+    
+    // Call the backend API endpoint with JWT
     const response = await fetch(`${API_BASE_URL}/api/generate-insights`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
       },
       body: JSON.stringify({
         businessData: businessData,

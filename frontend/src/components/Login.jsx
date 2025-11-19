@@ -17,18 +17,19 @@ function Login({ onLoginSuccess }) {
         code: securityCode
       });
 
-      if (response.data.success) {
-        // Store authentication in localStorage
-        localStorage.setItem('isAuthenticated', 'true');
-        localStorage.setItem('authTimestamp', new Date().getTime().toString());
-        onLoginSuccess();
-      }
+      // Store JWT token instead of boolean
+      const { access_token, expires_in } = response.data;
+      localStorage.setItem('access_token', access_token);
+      localStorage.setItem('token_expires_at', (new Date().getTime() + expires_in * 1000).toString());
+      onLoginSuccess();
     } catch (err) {
       // Handle different error types
       if (err.response) {
         // Server responded with error status
         if (err.response.status === 401) {
           setError('Invalid security code. Please try again.');
+        } else if (err.response.status === 429) {
+          setError('Too many login attempts. Please wait 15 minutes and try again.');
         } else if (err.response.status === 500) {
           setError('Server configuration error. Please contact administrator.');
         } else {

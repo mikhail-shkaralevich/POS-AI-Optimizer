@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
-import { API_BASE_URL } from '../config/api';
+import apiClient from '../utils/apiClient';
 
 function DataUpload({ onUploadSuccess }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -22,8 +21,8 @@ function DataUpload({ onUploadSuccess }) {
     formData.append('file', shopifyFile);
 
     try {
-      console.log('Uploading Shopify file to:', `${API_BASE_URL}/api/upload/shopify`);
-      const response = await axios.post(`${API_BASE_URL}/api/upload/shopify`, formData, {
+      console.log('Uploading Shopify file to:', '/api/upload/shopify');
+      const response = await apiClient.post('/api/upload/shopify', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 30000 // 30 second timeout for large files
       });
@@ -97,8 +96,8 @@ function DataUpload({ onUploadSuccess }) {
     formData.append('file', sensorFile);
 
     try {
-      console.log('Uploading sensor file to:', `${API_BASE_URL}/api/upload/sensor`);
-      const response = await axios.post(`${API_BASE_URL}/api/upload/sensor`, formData, {
+      console.log('Uploading sensor file to:', '/api/upload/sensor');
+      const response = await apiClient.post('/api/upload/sensor', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 30000 // 30 second timeout for large files
       });

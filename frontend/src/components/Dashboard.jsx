@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import apiClient from '../utils/apiClient';
 import Header from './Header';
 import MetricCard from './MetricCard';
 import InsightsSection from './InsightsSection';
@@ -8,7 +8,6 @@ import OtherMetricsCard from './OtherMetricsCard';
 import ChatBot from './ChatBot';
 import DataUpload from './DataUpload';
 import DashboardCustomizer from './DashboardCustomizer';
-import { API_BASE_URL } from '../config/api';
 
 function Dashboard() {
   const [businessName, setBusinessName] = useState('');
@@ -37,11 +36,11 @@ function Dashboard() {
     try {
       setLoading(true);
       
-      // Fetch all data in parallel
+      // Fetch all data in parallel using apiClient with JWT
       const [businessInfoRes, metricsRes, comparisonsRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/api/business-info`),
-        axios.get(`${API_BASE_URL}/api/metrics`),
-        axios.get(`${API_BASE_URL}/api/comparisons`)
+        apiClient.get('/api/business-info'),
+        apiClient.get('/api/metrics'),
+        apiClient.get('/api/comparisons')
       ]);
 
       setBusinessName(businessInfoRes.data.business_name);

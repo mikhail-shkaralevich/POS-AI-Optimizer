@@ -3,41 +3,61 @@ import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-ro
 import Dashboard from './components/Dashboard';
 import PricingPage from './components/PricingPage';
 import Login from './components/Login';
+import axios from 'axios';
+import { API_BASE_URL } from './config/api';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   useEffect(() => {
-    // Check if user is already authenticated
-    const authStatus = localStorage.getItem('isAuthenticated');
-    const authTimestamp = localStorage.getItem('authTimestamp');
+    validateToken();
+  }, []);
+
+  const validateToken = async () => {
+    const token = localStorage.getItem('access_token');
+    const expiresAt = localStorage.getItem('token_expires_at');
     
-    if (authStatus === 'true' && authTimestamp) {
-      // Check if authentication is still valid (24 hours)
-      const currentTime = new Date().getTime();
-      const authTime = parseInt(authTimestamp, 10);
-      const twentyFourHours = 24 * 60 * 60 * 1000;
-      
-      if (currentTime - authTime < twentyFourHours) {
-        setIsAuthenticated(true);
-      } else {
-        // Session expired
-        localStorage.removeItem('isAuthenticated');
-        localStorage.removeItem('authTimestamp');
-      }
+    if (!token || !expiresAt) {
+      setIsCheckingAuth(false);
+      return;
     }
     
-    setIsCheckingAuth(false);
-  }, []);
+    // Check if token expired locally first
+    const currentTime = new Date().getTime();
+    if (currentTime >= parseInt(expiresAt, 10)) {
+      // Token expired
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('token_expires_at');
+      setIsCheckingAuth(false);
+      return;
+    }
+    
+    // Validate with server
+    try {
+      await axios.get(`${API_BASE_URL}/api/auth/validate`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      setIsAuthenticated(true);
+    } catch (error) {
+      // Token invalid or expired on server
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('token_expires_at');
+      console.error('Token validation failed:', error);
+    } finally {
+      setIsCheckingAuth(false);
+    }
+  };
 
   const handleLoginSuccess = () => {
     setIsAuthenticated(true);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('authTimestamp');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('token_expires_at');
     setIsAuthenticated(false);
   };
 
