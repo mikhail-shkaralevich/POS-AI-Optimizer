@@ -65,7 +65,15 @@ The application requires configuration for both AI chatbot and security:
    SECURITY_CODE=your-secure-code-here
    ```
 
-3. **Configure Anthropic API Key** (Required for AI chatbot):
+3. **Configure JWT Secret Key** (Required for session authentication):
+   ```properties
+   # JWT Secret Key for Token Generation
+   # Generate a secure random string (32+ characters recommended)
+   # You can use: python -c "import secrets; print(secrets.token_urlsafe(32))"
+   JWT_SECRET_KEY=your-secret-key-here-change-this-in-production
+   ```
+
+4. **Configure Anthropic API Key** (Required for AI chatbot):
    - Visit [https://console.anthropic.com](https://console.anthropic.com)
    - Sign up or log in
    - Navigate to **API Keys** and create a new key
@@ -82,14 +90,15 @@ The application requires configuration for both AI chatbot and security:
      MAX_TOKENS=4096
      ```
 
-4. **Available AI Models**:
+5. **Available AI Models**:
    - `claude-sonnet-4-20250514` - Claude Sonnet 4 (latest, recommended)
    - `claude-3-5-sonnet-20241022` - Claude 3.5 Sonnet
    - `claude-3-opus-20240229` - Claude 3 Opus (most capable)
 
 **Important Security Notes**:
 - Always change the default `SECURITY_CODE` before deploying to production
-- Keep your security code private and share only with authorized users
+- Always change the default `JWT_SECRET_KEY` to a strong random string
+- Keep your security code and JWT secret key private and secure
 - The chatbot will not work without a valid Anthropic API key
 
 ### 4. Frontend Setup
