@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 
 function HourlyRevenueCard({ data }) {
+  const [startHour, setStartHour] = useState(0);
+  const [endHour, setEndHour] = useState(23);
+
   if (!data || data.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -10,8 +13,15 @@ function HourlyRevenueCard({ data }) {
     );
   }
 
-  // Find max revenue for scaling bars
-  const maxRevenue = Math.max(...data.map(item => item.revenue));
+  // Filter data based on selected hour range
+  const filteredData = useMemo(() => {
+    return data.filter(item => item.hour >= startHour && item.hour <= endHour);
+  }, [data, startHour, endHour]);
+
+  // Find max revenue for scaling bars from filtered data
+  const maxRevenue = filteredData.length > 0 
+    ? Math.max(...filteredData.map(item => item.revenue))
+    : 0;
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -24,8 +34,64 @@ function HourlyRevenueCard({ data }) {
       
       <div className="border-t-2 border-green-600 mb-4"></div>
 
+      {/* Hour Range Selector */}
+      <div className="bg-gray-50 rounded-lg p-4 mb-4">
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              From:
+            </label>
+            <select
+              value={startHour}
+              onChange={(e) => {
+                const newStart = parseInt(e.target.value);
+                if (newStart <= endHour) {
+                  setStartHour(newStart);
+                }
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+            >
+              {Array.from({ length: 24 }, (_, i) => {
+                const hour12 = i === 0 ? 12 : i > 12 ? i - 12 : i;
+                const ampm = i < 12 ? 'am' : 'pm';
+                return (
+                  <option key={i} value={i}>
+                    {hour12}:00 {ampm}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              To:
+            </label>
+            <select
+              value={endHour}
+              onChange={(e) => {
+                const newEnd = parseInt(e.target.value);
+                if (newEnd >= startHour) {
+                  setEndHour(newEnd);
+                }
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+            >
+              {Array.from({ length: 24 }, (_, i) => {
+                const hour12 = i === 0 ? 12 : i > 12 ? i - 12 : i;
+                const ampm = i < 12 ? 'am' : 'pm';
+                return (
+                  <option key={i} value={i}>
+                    {hour12}:00 {ampm}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div className="space-y-3">
-        {data.map((item, index) => {
+        {filteredData.map((item, index) => {
           // Calculate bar width percentage (minimum 2% for visibility)
           const barWidth = maxRevenue > 0 
             ? Math.max(2, (item.revenue / maxRevenue) * 100) 
@@ -66,7 +132,7 @@ function HourlyRevenueCard({ data }) {
         })}
       </div>
 
-      {data.length === 0 && (
+      {filteredData.length === 0 && (
         <p className="text-center text-gray-500 text-sm mt-4">
           No revenue data for the selected period
         </p>
