@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import apiClient from '../utils/apiClient';
 import Header from './Header';
 import MetricCard from './MetricCard';
@@ -8,6 +8,9 @@ import OtherMetricsCard from './OtherMetricsCard';
 import ChatBot from './ChatBot';
 import DataUpload from './DataUpload';
 import DashboardCustomizer from './DashboardCustomizer';
+import TopProductsCard from './metrics/TopProductsCard';
+import HourlyRevenueCard from './metrics/HourlyRevenueCard';
+import { calculateTopProducts, calculateHourlyRevenue } from '../utils/metricCalculations';
 
 function Dashboard() {
   const [businessName, setBusinessName] = useState('');
@@ -15,6 +18,7 @@ function Dashboard() {
   const [comparisons, setComparisons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeWidgets, setActiveWidgets] = useState([]);
+  const [transactions, setTransactions] = useState([]);
 
   useEffect(() => {
     // Load saved widget configuration
@@ -22,8 +26,8 @@ function Dashboard() {
     if (saved) {
       setActiveWidgets(JSON.parse(saved));
     } else {
-      // Default widgets
-      setActiveWidgets(['revenue', 'atv', 'customers', 'footTraffic', 'conversion', 'insights', 'comparisons', 'prescriptions', 'otherMetrics']);
+      // Default widgets (insights OFF by default to save API calls)
+      setActiveWidgets(['revenue', 'atv', 'customers', 'footTraffic', 'conversion', 'comparisons', 'prescriptions', 'otherMetrics']);
     }
     fetchData();
   }, []);
@@ -40,12 +44,14 @@ function Dashboard() {
       const [businessInfoRes, metricsRes, comparisonsRes] = await Promise.all([
         apiClient.get('/api/business-info'),
         apiClient.get('/api/metrics'),
-        apiClient.get('/api/comparisons')
+        apiClient.get('/api/comparisons'),
+        apiClient.get('/api/transactions')
       ]);
 
       setBusinessName(businessInfoRes.data.business_name);
       setMetrics(metricsRes.data);
       setComparisons(comparisonsRes.data.comparisons);
+      setTransactions(transactionsRes.data.transactions || []);
       
       setLoading(false);
     } catch (error) {
@@ -53,6 +59,15 @@ function Dashboard() {
       setLoading(false);
     }
   };
+
+  // Calculate custom metrics using useMemo for performance
+  const topProducts = useMemo(() => {
+    return calculateTopProducts(transactions);
+  }, [transactions]);
+
+  const hourlyRevenue = useMemo(() => {
+    return calculateHourlyRevenue(transactions);
+  }, [transactions]);
 
   if (loading) {
     return (
@@ -174,6 +189,18 @@ function Dashboard() {
                 retentionRate={metrics?.retention_rate || 0}
                 busiestDay={metrics?.busiest_day || 'N/A'}
               />
+            )}
+          </div>
+        )}
+
+        {/* Custom Metrics Section */}
+        {(activeWidgets.includes('topProducts') || activeWidgets.includes('hourlyRevenue')) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {activeWidgets.includes('topProducts') && (
+              <TopProductsCard data={topProducts} />
+            )}
+            {activeWidgets.includes('hourlyRevenue') && (
+              <HourlyRevenueCard data={hourlyRevenue} />
             )}
           </div>
         )}

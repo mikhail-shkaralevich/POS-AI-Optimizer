@@ -53,6 +53,7 @@ export default function InsightsSection({ dashboardData, showInsights = true, sh
     }
   };
   
+  // Only load insights when showInsights becomes true
   useEffect(() => {
     // Try to load from cache first
     const cachedData = localStorage.getItem(CACHE_KEY);

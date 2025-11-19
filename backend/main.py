@@ -50,7 +50,7 @@ ALLOWED_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
         "ALLOWED_ORIGINS",
-        "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:3000",
+        "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://127.0.0.1:5174,http://localhost:3000",
     ).split(",")
     if origin.strip()
 ]
@@ -997,6 +997,15 @@ def validate_token(payload: dict = Depends(verify_token)):
 def get_business_info(payload: dict = Depends(verify_token)):
     """Get business name and basic info."""
     return {"business_name": mock_data["business_name"]}
+
+@app.get("/api/transactions")
+def get_transactions():
+    """Get raw transaction data for custom metrics."""
+    transactions = mock_data["transactions"]
+    return {
+        "transactions": transactions,
+        "count": len(transactions)
+    }
 
 @app.get("/api/metrics")
 def get_metrics(payload: dict = Depends(verify_token)):
