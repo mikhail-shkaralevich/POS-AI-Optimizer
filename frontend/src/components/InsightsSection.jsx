@@ -6,6 +6,9 @@ export default function InsightsSection({ dashboardData, showInsights = true, sh
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   
+  const CACHE_KEY = 'ai_insights_cache';
+  const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+  
   const loadInsights = async (isRefresh = false) => {
     setLoading(true);
     setError(null);
@@ -33,6 +36,14 @@ export default function InsightsSection({ dashboardData, showInsights = true, sh
       };
       
       const newInsights = await generateBusinessInsights(businessData, isRefresh);
+      
+      // Cache the insights with timestamp
+      const cacheData = {
+        insights: newInsights,
+        timestamp: new Date().getTime()
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+      
       setInsights(newInsights);
     } catch (err) {
       console.error("Failed to load insights:", err);
@@ -43,7 +54,31 @@ export default function InsightsSection({ dashboardData, showInsights = true, sh
   };
   
   useEffect(() => {
-    loadInsights(); // Load on mount
+    // Try to load from cache first
+    const cachedData = localStorage.getItem(CACHE_KEY);
+    
+    if (cachedData) {
+      try {
+        const { insights: cachedInsights, timestamp } = JSON.parse(cachedData);
+        const age = new Date().getTime() - timestamp;
+        
+        // If cache is still valid (less than 24 hours old), use it
+        if (age < CACHE_DURATION) {
+          console.log('[Insights] Loading from cache (age:', Math.round(age / 1000 / 60), 'minutes)');
+          setInsights(cachedInsights);
+          return; // Don't make API call
+        } else {
+          console.log('[Insights] Cache expired, will generate new insights on user request');
+          // Cache expired, but don't auto-generate - wait for user to click
+          localStorage.removeItem(CACHE_KEY);
+        }
+      } catch (err) {
+        console.error('[Insights] Failed to parse cached insights:', err);
+        localStorage.removeItem(CACHE_KEY);
+      }
+    }
+    
+    // No valid cache - show empty state, user will need to click "Get New Insights"
   }, []);
   
   const getPriorityColor = (priority) => {
@@ -99,6 +134,18 @@ export default function InsightsSection({ dashboardData, showInsights = true, sh
           <div className="text-center">
             <div className="animate-spin text-4xl mb-4">⟳</div>
             <p className="text-gray-600">Analyzing your business data...</p>
+          </div>
+        </div>
+      )}
+      
+      {!loading && !insights && (
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow-md p-12">
+          <div className="text-center max-w-md mx-auto">
+            <div className="text-6xl mb-4">🤖</div>
+            <h3 className="text-2xl font-bold text-gray-800 mb-2">AI Insights Ready</h3>
+            <p className="text-gray-600">
+              Click "Get New Insights" button above to analyze your business data and receive personalized recommendations powered by AI.
+            </p>
           </div>
         </div>
       )}
