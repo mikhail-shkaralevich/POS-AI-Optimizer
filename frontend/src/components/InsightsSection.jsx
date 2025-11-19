@@ -42,9 +42,12 @@ export default function InsightsSection({ dashboardData, showInsights = true, sh
     }
   };
   
+  // Only load insights when showInsights becomes true
   useEffect(() => {
-    loadInsights(); // Load on mount
-  }, []);
+    if (showInsights && !insights && !loading) {
+      loadInsights();
+    }
+  }, [showInsights]);
   
   const getPriorityColor = (priority) => {
     switch(priority) {

@@ -10,6 +10,8 @@ const AVAILABLE_WIDGETS = [
   { id: 'comparisons', title: 'Comparisons', category: 'analytics' },
   { id: 'prescriptions', title: 'Prescriptions', category: 'analytics' },
   { id: 'otherMetrics', title: 'Other Metrics', category: 'analytics' },
+  { id: 'topProducts', title: 'Top Products', category: 'custom' },
+  { id: 'hourlyRevenue', title: 'Hourly Revenue', category: 'custom' },
   { id: 'chatbot', title: 'AI Chatbot', category: 'tools' },
 ];
 
@@ -27,8 +29,8 @@ function DashboardCustomizer({ onWidgetsChange }) {
     if (saved) {
       setActiveWidgets(JSON.parse(saved));
     } else {
-      // Default widgets
-      setActiveWidgets(['revenue', 'atv', 'customers', 'footTraffic', 'conversion', 'insights', 'comparisons', 'prescriptions', 'otherMetrics']);
+      // Default widgets (insights OFF by default to save API calls)
+      setActiveWidgets(['revenue', 'atv', 'customers', 'footTraffic', 'conversion', 'comparisons', 'prescriptions', 'otherMetrics']);
     }
   }, []);
 
@@ -99,6 +101,7 @@ function DashboardCustomizer({ onWidgetsChange }) {
   const categories = {
     metrics: AVAILABLE_WIDGETS.filter(w => w.category === 'metrics'),
     analytics: AVAILABLE_WIDGETS.filter(w => w.category === 'analytics'),
+    custom: AVAILABLE_WIDGETS.filter(w => w.category === 'custom'),
     tools: AVAILABLE_WIDGETS.filter(w => w.category === 'tools'),
   };
 
@@ -162,6 +165,24 @@ function DashboardCustomizer({ onWidgetsChange }) {
                 <h4 className="font-semibold text-gray-700 mb-2 text-sm">Analytics</h4>
                 <div className="space-y-2">
                   {categories.analytics.map(widget => (
+                    <label key={widget.id} className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
+                      <input
+                        type="checkbox"
+                        checked={activeWidgets.includes(widget.id)}
+                        onChange={() => toggleWidget(widget.id)}
+                        className="w-4 h-4 text-blue-600 rounded"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">{widget.title}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Metrics Category */}
+              <div className="mb-4">
+                <h4 className="font-semibold text-gray-700 mb-2 text-sm">Custom Metrics</h4>
+                <div className="space-y-2">
+                  {categories.custom.map(widget => (
                     <label key={widget.id} className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
                       <input
                         type="checkbox"
