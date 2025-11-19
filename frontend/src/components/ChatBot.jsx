@@ -1,6 +1,57 @@
 import React, { useState, useRef, useEffect } from 'react';
 import apiClient from '../utils/apiClient';
 
+// Simple markdown parser component
+const MarkdownText = ({ text }) => {
+  const parseMarkdown = (content) => {
+    // Split by lines to preserve structure
+    const lines = content.split('\n');
+    
+    return lines.map((line, lineIndex) => {
+      // Parse inline markdown: **bold**, *italic*
+      const parts = [];
+      let remaining = line;
+      let key = 0;
+      
+      while (remaining.length > 0) {
+        // Match **bold**
+        const boldMatch = remaining.match(/\*\*([^*]+)\*\*/);
+        if (boldMatch && boldMatch.index === 0) {
+          parts.push(<strong key={`${lineIndex}-${key++}`}>{boldMatch[1]}</strong>);
+          remaining = remaining.slice(boldMatch[0].length);
+          continue;
+        }
+        
+        // Match *italic*
+        const italicMatch = remaining.match(/\*([^*]+)\*/);
+        if (italicMatch && italicMatch.index === 0) {
+          parts.push(<em key={`${lineIndex}-${key++}`}>{italicMatch[1]}</em>);
+          remaining = remaining.slice(italicMatch[0].length);
+          continue;
+        }
+        
+        // Find next markdown or end of string
+        const nextMarkdown = remaining.search(/\*\*|\*/);
+        if (nextMarkdown === -1) {
+          parts.push(<span key={`${lineIndex}-${key++}`}>{remaining}</span>);
+          break;
+        } else {
+          parts.push(<span key={`${lineIndex}-${key++}`}>{remaining.slice(0, nextMarkdown)}</span>);
+          remaining = remaining.slice(nextMarkdown);
+        }
+      }
+      
+      return (
+        <div key={lineIndex}>
+          {parts.length > 0 ? parts : <br />}
+        </div>
+      );
+    });
+  };
+  
+  return <div className="text-sm whitespace-pre-line">{parseMarkdown(text)}</div>;
+};
+
 function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
@@ -31,7 +82,7 @@ function ChatBot() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/chat`, {
+      const response = await apiClient.post('/api/chat', {
         message: userMessage
       });
 
@@ -92,7 +143,7 @@ function ChatBot() {
                       : 'bg-white text-gray-800 shadow-sm rounded-bl-none border border-gray-200'
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-line">{message.content}</p>
+                  <MarkdownText text={message.content} />
                 </div>
               </div>
             ))}

@@ -260,12 +260,35 @@ def generate_business_context() -> str:
     transactions = mock_data["transactions"]
     business_name = mock_data["business_name"]
     
-    # Calculate key metrics
-    revenue_data = calculate_revenue(transactions, days=30)
-    atv_data = calculate_atv(transactions, days=30)
-    customer_data = calculate_customer_metrics(transactions, days=30)
-    foot_traffic_data = calculate_foot_traffic(days=30)
-    conversion_data = calculate_conversion_rate(transactions, days=30)
+    # Check if data is available
+    if not transactions or len(transactions) == 0:
+        return """
+BUSINESS OVERVIEW:
+Business Name: Your Retail Store
+Status: No transaction data available
+
+IMPORTANT: Please upload your business data using the "Upload Data" section on the dashboard to enable AI insights and analysis.
+
+Required files:
+1. Shopify/POS CSV file - Your transaction data
+2. Sensor JSON file - Your foot traffic data
+
+Once data is uploaded, I'll be able to provide detailed insights about:
+- Revenue and sales trends
+- Customer behavior patterns
+- Product performance
+- Operational recommendations
+- And much more!
+
+Please upload your data files to get started.
+"""
+    
+    # Calculate key metrics using the same parameters as /api/metrics endpoint
+    revenue_data = calculate_revenue(transactions)  # Use default 120 days to match /api/metrics
+    atv_data = calculate_atv(transactions)  # Use default 120 days
+    customer_data = calculate_customer_metrics(transactions)  # Use default 120 days
+    foot_traffic_data = calculate_foot_traffic()
+    conversion_data = calculate_conversion_rate(transactions)
     retention_rate = calculate_retention_rate(transactions)
     busiest_day = get_busiest_day(transactions)
     top_item = get_top_selling_item(transactions)
@@ -295,7 +318,7 @@ BUSINESS OVERVIEW:
 Business Name: {business_name}
 Business Type: Retail Store (selling accessories, hair products, and lifestyle items)
 
-KEY METRICS (Last 30 Days):
+KEY METRICS (All Available Data):
 - Total Revenue: ${revenue_data['total']:,.2f}
 - Average Daily Revenue: ${revenue_data['average_daily']:,.2f}
 - Average Transaction Value (ATV): ${atv_data['value']:.2f}
