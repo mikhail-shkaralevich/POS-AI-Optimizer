@@ -30,8 +30,8 @@ function DashboardCustomizer({ onWidgetsChange }) {
     if (saved) {
       setActiveWidgets(JSON.parse(saved));
     } else {
-      // Default widgets (insights OFF by default to save API calls)
-      setActiveWidgets(['revenue', 'atv', 'customers', 'footTraffic', 'conversion', 'comparisons', 'prescriptions', 'otherMetrics', 'inventory']);
+      // Default widgets - all active by default
+      setActiveWidgets(['revenue', 'atv', 'customers', 'footTraffic', 'conversion', 'insights', 'comparisons', 'prescriptions', 'otherMetrics', 'inventory', 'topProducts', 'hourlyRevenue', 'chatbot']);
     }
   }, []);
 
@@ -53,7 +53,7 @@ function DashboardCustomizer({ onWidgetsChange }) {
   };
 
   const resetToDefault = () => {
-    const defaults = ['revenue', 'atv', 'customers', 'footTraffic', 'conversion', 'insights', 'comparisons', 'prescriptions', 'otherMetrics', 'inventory'];
+    const defaults = ['revenue', 'atv', 'customers', 'footTraffic', 'conversion', 'insights', 'comparisons', 'prescriptions', 'otherMetrics', 'inventory', 'topProducts', 'hourlyRevenue', 'chatbot'];
     saveLayout(defaults);
     if (onWidgetsChange) {
       onWidgetsChange(defaults);

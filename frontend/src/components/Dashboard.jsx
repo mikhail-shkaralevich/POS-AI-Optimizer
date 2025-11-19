@@ -27,8 +27,8 @@ function Dashboard() {
     if (saved) {
       setActiveWidgets(JSON.parse(saved));
     } else {
-      // Default widgets (insights OFF by default to save API calls)
-      setActiveWidgets(['revenue', 'atv', 'customers', 'footTraffic', 'conversion', 'comparisons', 'prescriptions', 'otherMetrics', 'inventory']);
+      // Default widgets - all active by default
+      setActiveWidgets(['revenue', 'atv', 'customers', 'footTraffic', 'conversion', 'insights', 'comparisons', 'prescriptions', 'otherMetrics', 'inventory', 'topProducts', 'hourlyRevenue', 'chatbot']);
     }
     fetchData();
   }, []);
