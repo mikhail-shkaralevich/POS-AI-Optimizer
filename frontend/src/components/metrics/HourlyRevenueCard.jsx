@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 
 function HourlyRevenueCard({ data }) {
-  const [startHour, setStartHour] = useState(0);
-  const [endHour, setEndHour] = useState(23);
+  const [startHour, setStartHour] = useState(10);  // 10:00 am
+  const [endHour, setEndHour] = useState(17);      // 5:00 pm
 
   if (!data || data.length === 0) {
     return (
