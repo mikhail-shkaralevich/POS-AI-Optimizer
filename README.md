@@ -4,6 +4,7 @@ A modern, AI-powered dashboard for small retail businesses that provides prescri
 
 ## Features
 
+- **Secure Access**: Login page with security code authentication to protect your business data
 - **Real-time Metrics**: Track revenue, average transaction value, and customer patterns
 - **AI Insights**: Get actionable business intelligence from your data
 - **Comparative Analytics**: Benchmark against similar businesses
@@ -13,6 +14,7 @@ A modern, AI-powered dashboard for small retail businesses that provides prescri
 - **Pricing Page**: Professional pricing tiers with hardware options (LiDAR sensor)
 - **Data Import**: Upload your own Shopify/Square POS data and LiDAR sensor data directly from the web interface
 - **Customizable Dashboard**: Drag-and-drop widget selection - show/hide any metric or analytics card with one click
+- **Session Management**: 24-hour authentication sessions with easy logout
 
 ## Tech Stack
 
@@ -50,19 +52,25 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 3. Configure API Key for AI Chatbot
+### 3. Configure Environment Variables
 
-The AI chatbot requires an Anthropic API key to function:
+The application requires configuration for both AI chatbot and security:
 
-1. **Get your API key**:
+1. **Open the `.env` file** in the `backend` directory
+
+2. **Configure Security Code** (Required for dashboard access):
+   ```properties
+   # Security Code for Dashboard Access
+   # Change this to your desired access code before deploying
+   SECURITY_CODE=your-secure-code-here
+   ```
+
+3. **Configure Anthropic API Key** (Required for AI chatbot):
    - Visit [https://console.anthropic.com](https://console.anthropic.com)
    - Sign up or log in
    - Navigate to **API Keys** and create a new key
    - Copy your API key (starts with `sk-ant-api03-...`)
-
-2. **Set up environment variables**:
-   - Open the `.env` file in the `backend` directory
-   - Configure the following settings:
+   - Add to `.env`:
      ```properties
      # Required: Your Anthropic API key
      ANTHROPIC_API_KEY=sk-ant-api03-your-actual-key-here
@@ -73,14 +81,16 @@ The AI chatbot requires an Anthropic API key to function:
      # Optional: Maximum tokens for AI responses (default: 2000)
      MAX_TOKENS=4096
      ```
-   - Save the file
 
-3. **Available Models**:
+4. **Available AI Models**:
    - `claude-sonnet-4-20250514` - Claude Sonnet 4 (latest, recommended)
    - `claude-3-5-sonnet-20241022` - Claude 3.5 Sonnet
    - `claude-3-opus-20240229` - Claude 3 Opus (most capable)
 
-**Note**: The chatbot will not work without a valid API key. The backend will display a warning if the key is missing.
+**Important Security Notes**:
+- Always change the default `SECURITY_CODE` before deploying to production
+- Keep your security code private and share only with authorized users
+- The chatbot will not work without a valid Anthropic API key
 
 ### 4. Frontend Setup
 
@@ -118,7 +128,14 @@ The frontend will run on `http://localhost:5173`
 
 ### 6. Access the Dashboard
 
-Open your browser and navigate to `http://localhost:5173`
+1. Open your browser and navigate to `http://localhost:5173`
+
+2. **Login with Security Code**:
+   - You'll be presented with a login page
+   - Enter the security code you configured in the `.env` file (default: `kira-super-shop`)
+   - Click "Access Dashboard"
+   - Your session will remain active for 24 hours
+   - Use the "Logout" button in the navigation bar to sign out
 
 ### 7. Import Your Data
 

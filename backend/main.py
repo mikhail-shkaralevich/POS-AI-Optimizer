@@ -187,6 +187,13 @@ class ChatMessage(BaseModel):
 class ChatResponse(BaseModel):
     response: str
 
+class SecurityCodeRequest(BaseModel):
+    code: str
+
+class SecurityCodeResponse(BaseModel):
+    success: bool
+    message: str
+
 # AI Context Generator
 def generate_business_context() -> str:
     """Generate comprehensive business context for Claude AI."""
@@ -878,6 +885,19 @@ def calculate_hourly_conversion(transactions: List[Dict], days: int = 120) -> Di
 def read_root():
     """Health check endpoint."""
     return {"status": "ok", "message": "Retail Dashboard API is running"}
+
+@app.post("/api/auth/verify")
+def verify_security_code(request: SecurityCodeRequest):
+    """Verify the security code for dashboard access."""
+    expected_code = os.getenv("SECURITY_CODE", "")
+    
+    if not expected_code:
+        raise HTTPException(status_code=500, detail="Security code not configured on server")
+    
+    if request.code == expected_code:
+        return {"success": True, "message": "Access granted"}
+    else:
+        return {"success": False, "message": "Invalid security code"}
 
 @app.get("/api/business-info")
 def get_business_info():
