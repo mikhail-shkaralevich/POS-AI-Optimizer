@@ -143,6 +143,7 @@ function Dashboard() {
                 trend={metrics?.conversion_rate?.trend || []}
                 tooltip="Percentage of visitors who make a purchase (transactions ÷ foot traffic × 100)"
                 type="conversion"
+                dataQualityWarnings={metrics?.conversion_rate?.data_quality_warnings || []}
               />
             )}
           </div>

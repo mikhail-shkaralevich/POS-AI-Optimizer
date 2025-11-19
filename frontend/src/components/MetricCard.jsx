@@ -3,13 +3,19 @@ import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
 import apiClient from '../utils/apiClient';
 import { generateBenchmarkSeries } from '../utils/benchmark';
 
-function MetricCard({ title, value, trend, tooltip, type }) {
+function MetricCard({ title, value, trend, tooltip, type, dataQualityWarnings = [] }) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [granularity, setGranularity] = useState('daily');
   const [hourlyData, setHourlyData] = useState(null);
   const [loadingHourly, setLoadingHourly] = useState(false);
   const [showBenchmark, setShowBenchmark] = useState(false);
+  
+  // Create a map of suspicious dates for quick lookup
+  const suspiciousDatesMap = dataQualityWarnings.reduce((acc, warning) => {
+    acc[warning.date] = warning;
+    return acc;
+  }, {});
 
   // Prepare chart data based on type and granularity
   const prepareChartData = (dataSource = null) => {
@@ -25,18 +31,29 @@ function MetricCard({ title, value, trend, tooltip, type }) {
     };
     
     if (type === 'customers') {
-      return sourceData.map(item => ({
-        date: formatDateForAxis(item.date),
-        fullDate: item.date, // Keep full date for tooltip
-        new: item.new,
-        returning: item.returning
-      }));
+      return sourceData.map(item => {
+        const suspicious = suspiciousDatesMap[item.date];
+        return {
+          date: formatDateForAxis(item.date),
+          fullDate: item.date,
+          new: item.new,
+          returning: item.returning,
+          isSuspicious: !!suspicious,
+          suspiciousReason: suspicious?.raw_conversion
+        };
+      });
     } else {
-      return sourceData.map(item => ({
-        date: formatDateForAxis(item.date),
-        fullDate: item.date, // Keep full date for tooltip
-        value: item.value
-      }));
+      return sourceData.map(item => {
+        const suspicious = suspiciousDatesMap[item.date];
+        return {
+          date: formatDateForAxis(item.date),
+          fullDate: item.date,
+          value: item.value,
+          isSuspicious: !!suspicious,
+          suspiciousReason: suspicious?.raw_conversion,
+          suspiciousDetails: suspicious
+        };
+      });
     }
   };
 
@@ -168,7 +185,9 @@ function MetricCard({ title, value, trend, tooltip, type }) {
   // Custom tooltip to show full date/time in hourly view
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
-      const fullDate = payload[0].payload.fullDate || label;
+      const dataPoint = payload[0].payload;
+      const fullDate = dataPoint.fullDate || label;
+      const isSuspicious = dataPoint.isSuspicious && type === 'conversion';
       
       // Format date based on view state
       let displayDate;
@@ -212,13 +231,31 @@ function MetricCard({ title, value, trend, tooltip, type }) {
       };
       
       return (
-        <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-3">
+        <div className={`border rounded-lg shadow-lg p-3 ${
+          isSuspicious 
+            ? 'bg-orange-50 border-orange-300' 
+            : 'bg-white border-gray-300'
+        }`}>
           <p className="text-sm font-semibold text-gray-700 mb-1">{displayDate}</p>
           {payload.map((entry, index) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
               {formatValue(entry)}
             </p>
           ))}
+          {isSuspicious && dataPoint.suspiciousDetails && (
+            <div className="mt-2 pt-2 border-t border-orange-300">
+              <p className="text-xs font-semibold text-orange-700 mb-1">⚠️ Data Quality Issue</p>
+              <p className="text-xs text-orange-600">
+                {dataPoint.suspiciousDetails.transactions} transactions vs {dataPoint.suspiciousDetails.traffic} visitors
+              </p>
+              <p className="text-xs text-orange-600">
+                Raw rate: {dataPoint.suspiciousDetails.raw_conversion.toFixed(1)}% (capped at 100%)
+              </p>
+              <p className="text-xs text-orange-600 mt-1">
+                Possible causes: Sensor offline, duplicate transactions, or data sync issues
+              </p>
+            </div>
+          )}
         </div>
       );
     }
@@ -228,6 +265,8 @@ function MetricCard({ title, value, trend, tooltip, type }) {
   // Custom X-axis tick formatter to show unique dates only
   const renderCustomTick = (tickProps) => {
     const { x, y, payload, index } = tickProps;
+    const dataPoint = chartData[index];
+    const isSuspicious = dataPoint?.isSuspicious && type === 'conversion';
     
     // In hourly view, only show date if it's the first occurrence
     if (granularity === 'hourly' && isExpanded) {
@@ -241,8 +280,9 @@ function MetricCard({ title, value, trend, tooltip, type }) {
             x={x} 
             y={y + 10} 
             textAnchor="middle" 
-            fill="#666"
+            fill={isSuspicious ? '#ea580c' : '#666'}
             fontSize={12}
+            fontWeight={isSuspicious ? 'bold' : 'normal'}
           >
             {currentDate}
           </text>
@@ -251,15 +291,31 @@ function MetricCard({ title, value, trend, tooltip, type }) {
       return null;
     }
     
-    // Default rendering for daily view
+    // For daily view in conversion metric, highlight suspicious dates
+    if (granularity === 'daily' && isExpanded && type === 'conversion') {
+      const isSuspiciousDay = dataPoint?.isSuspicious;
+      return (
+        <text 
+          x={x} 
+          y={y + 10} 
+          textAnchor="middle" 
+          fill={isSuspiciousDay ? '#ea580c' : '#666'}
+          fontSize={12}
+          fontWeight={isSuspiciousDay ? 'bold' : 'normal'}
+        >
+          {payload.value}{isSuspiciousDay ? ' ⚠' : ''}
+        </text>
+      );
+    }
+    
+    // Default rendering for other views
     return (
       <text 
         x={x} 
         y={y + 10} 
-        textAnchor="end" 
+        textAnchor="middle" 
         fill="#666"
         fontSize={12}
-        transform={`rotate(-45, ${x}, ${y + 10})`}
       >
         {payload.value}
       </text>
@@ -509,6 +565,31 @@ function MetricCard({ title, value, trend, tooltip, type }) {
                   <p className="text-sm text-gray-700">
                     <strong>ℹ️ Info:</strong> Benchmark overlays show estimated industry averages for small retail. Values are mock data with weekday/weekend seasonality for context; use alongside your data for directional comparison.
                   </p>
+                </div>
+              )}
+
+              {/* Data Quality Warnings for Conversion Rate */}
+              {type === 'conversion' && dataQualityWarnings && dataQualityWarnings.length > 0 && (
+                <div className="bg-orange-50 border border-orange-300 rounded-lg p-4 mt-4">
+                  <p className="text-sm font-semibold text-orange-900 mb-2">
+                    ⚠️ Data Quality Issues Detected
+                  </p>
+                  <div className="space-y-2">
+                    {dataQualityWarnings.map((warning, idx) => (
+                      <div key={idx} className="text-sm text-orange-800">
+                        <p className="font-medium">{warning.date}</p>
+                        <p className="ml-2 text-xs">
+                          • {warning.transactions} transactions recorded vs {warning.traffic} foot traffic visitors
+                        </p>
+                        <p className="ml-2 text-xs">
+                          • Raw conversion rate: {warning.raw_conversion.toFixed(1)}% (capped at 100%)
+                        </p>
+                        <p className="ml-2 text-xs text-orange-700 mt-1">
+                          This indicates more transactions than visitors, suggesting possible sensor offline issues, duplicate transactions, or data sync problems.
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 

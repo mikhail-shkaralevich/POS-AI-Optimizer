@@ -692,6 +692,10 @@ def calculate_conversion_rate(transactions: List[Dict], days: int = 120) -> Dict
     Calculates total conversion across ALL data, even if dates don't overlap.
     This gives a meaningful conversion rate even when transaction and sensor data
     are from different time periods.
+    
+    Edge case handling:
+    - If transactions > foot_traffic on a specific day, it indicates potential data quality issues
+    - We still calculate it but cap at 100% and log warnings for debugging
     """
     # Count ALL unique transactions (no date restrictions)
     unique_transaction_ids = set()
@@ -731,9 +735,10 @@ def calculate_conversion_rate(transactions: List[Dict], days: int = 120) -> Dict
     print(f"[DEBUG] Total foot traffic: {total_foot_traffic}")
     print(f"[DEBUG] Overall conversion: {overall_conversion}%")
     
-    # Build trend data (will show 0% for non-overlapping dates)
+    # Build trend data with improved edge case handling
     trend_data = []
     all_dates = sorted(set(list(daily_transactions.keys()) + list(daily_traffic.keys())))
+    suspicious_days = []  # Track days with potential data quality issues
     
     for date in all_dates:
         transactions_count = len(daily_transactions.get(date, set()))
@@ -742,16 +747,33 @@ def calculate_conversion_rate(transactions: List[Dict], days: int = 120) -> Dict
         # Include all days in trend, even if only one metric exists
         if transactions_count > 0 or traffic_count > 0:
             if traffic_count > 0:
-                conversion = min((transactions_count / traffic_count * 100), 100)
+                # Calculate conversion rate
+                raw_conversion = (transactions_count / traffic_count * 100)
+                conversion = min(raw_conversion, 100)  # Cap at 100%
+                
+                # Flag suspicious data: more transactions than foot traffic
+                if transactions_count > traffic_count:
+                    suspicious_days.append({
+                        "date": date,
+                        "transactions": transactions_count,
+                        "traffic": traffic_count,
+                        "raw_conversion": raw_conversion
+                    })
+                    print(f"[WARNING] {date}: {transactions_count} transactions > {traffic_count} foot traffic ({raw_conversion:.1f}% conversion)")
             else:
-                conversion = 0  # No traffic on this day
+                # No traffic data for this day - set conversion to 0%
+                conversion = 0
+                if transactions_count > 0:
+                    print(f"[WARNING] {date}: {transactions_count} transactions but NO foot traffic data (sensor may be offline)")
+            
             trend_data.append({"date": date, "value": round(conversion, 1)})
     
     return {
         "rate": round(overall_conversion, 1),
         "trend": trend_data,
         "transactions": total_transactions,
-        "foot_traffic": total_foot_traffic
+        "foot_traffic": total_foot_traffic,
+        "data_quality_warnings": suspicious_days  # Include warnings for frontend/debugging
     }
 
 def calculate_hourly_revenue(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
