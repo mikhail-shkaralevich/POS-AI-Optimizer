@@ -897,7 +897,7 @@ def verify_security_code(request: SecurityCodeRequest):
     if request.code == expected_code:
         return {"success": True, "message": "Access granted"}
     else:
-        return {"success": False, "message": "Invalid security code"}
+        raise HTTPException(status_code=401, detail="Invalid security code")
 
 @app.get("/api/business-info")
 def get_business_info():

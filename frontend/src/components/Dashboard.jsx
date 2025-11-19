@@ -8,8 +8,7 @@ import OtherMetricsCard from './OtherMetricsCard';
 import ChatBot from './ChatBot';
 import DataUpload from './DataUpload';
 import DashboardCustomizer from './DashboardCustomizer';
-
-const API_BASE_URL = 'http://localhost:8000';
+import { API_BASE_URL } from '../config/api';
 
 function Dashboard() {
   const [businessName, setBusinessName] = useState('');

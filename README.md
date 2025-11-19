@@ -102,6 +102,20 @@ cd frontend
 npm install
 ```
 
+**Configure Frontend Environment Variables:**
+
+1. Open the `.env` file in the `frontend` directory (or create one from `.env.example`)
+2. Set the backend API URL:
+   ```properties
+   # For local development
+   VITE_API_BASE_URL=http://localhost:8000
+   
+   # For production (Railway deployment)
+   # VITE_API_BASE_URL=https://your-backend.railway.app
+   ```
+
+**Note**: Vite requires environment variables to be prefixed with `VITE_` to be accessible in the frontend code.
+
 ### 5. Running the Application
 
 #### Start the Backend Server (Terminal 1)

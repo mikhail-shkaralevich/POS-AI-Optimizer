@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:8000';
+import { API_BASE_URL } from '../config/api';
 
 function Login({ onLoginSuccess }) {
   const [securityCode, setSecurityCode] = useState('');
@@ -23,11 +22,25 @@ function Login({ onLoginSuccess }) {
         localStorage.setItem('isAuthenticated', 'true');
         localStorage.setItem('authTimestamp', new Date().getTime().toString());
         onLoginSuccess();
-      } else {
-        setError(response.data.message || 'Invalid security code');
       }
     } catch (err) {
-      setError('Failed to verify security code. Please try again.');
+      // Handle different error types
+      if (err.response) {
+        // Server responded with error status
+        if (err.response.status === 401) {
+          setError('Invalid security code. Please try again.');
+        } else if (err.response.status === 500) {
+          setError('Server configuration error. Please contact administrator.');
+        } else {
+          setError(err.response.data?.detail || 'Authentication failed. Please try again.');
+        }
+      } else if (err.request) {
+        // Request made but no response received
+        setError('Cannot connect to server. Please check if the backend is running.');
+      } else {
+        // Something else happened
+        setError('An unexpected error occurred. Please try again.');
+      }
       console.error('Auth error:', err);
     } finally {
       setLoading(false);

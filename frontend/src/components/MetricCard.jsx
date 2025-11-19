@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import axios from 'axios';
 import { generateBenchmarkSeries } from '../utils/benchmark';
+import { API_BASE_URL } from '../config/api';
 
 function MetricCard({ title, value, trend, tooltip, type }) {
   const [showTooltip, setShowTooltip] = useState(false);
@@ -47,7 +48,7 @@ function MetricCard({ title, value, trend, tooltip, type }) {
     
     setLoadingHourly(true);
     try {
-      const response = await axios.get('http://localhost:8000/api/metrics/hourly');
+      const response = await axios.get(`${API_BASE_URL}/api/metrics/hourly`);
       setHourlyData(response.data);
     } catch (error) {
       console.error('Error fetching hourly data:', error);

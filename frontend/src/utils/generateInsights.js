@@ -1,3 +1,6 @@
+// Import API configuration
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 export const generateInsightsPrompt = (businessData) => {
   return `You are an expert retail analytics consultant analyzing data for a small-to-mid-sized retail business. Your role is to identify actionable insights and provide prescriptive recommendations based on their actual business data.
 
@@ -86,7 +89,7 @@ NOW ANALYZE THE DATA AND GENERATE FRESH, SPECIFIC INSIGHTS IN VALID JSON FORMAT.
 export async function generateBusinessInsights(businessData, isRefresh = false) {
   try {
     // Call the backend API endpoint instead of Anthropic directly
-    const response = await fetch("http://localhost:8000/api/generate-insights", {
+    const response = await fetch(`${API_BASE_URL}/api/generate-insights`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
