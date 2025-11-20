@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../utils/apiClient';
+import VariantFilter from './VariantFilter';
 
 function InventoryInsights() {
   const [inventoryData, setInventoryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState('velocity'); // 'velocity', 'slowMovers', 'variants'
   const [searchQuery, setSearchQuery] = useState('');
+  const [variantFilters, setVariantFilters] = useState([]);
 
   useEffect(() => {
     fetchInventoryData();
@@ -117,10 +119,20 @@ function InventoryInsights() {
       {/* Content Area */}
       <div className="p-6">
         {activeView === 'velocity' && (
-          <SalesVelocityView data={inventoryData?.salesVelocity} searchQuery={searchQuery} />
+          <SalesVelocityView 
+            data={inventoryData?.salesVelocity} 
+            searchQuery={searchQuery}
+            variantFilters={variantFilters}
+            onVariantFilterChange={setVariantFilters}
+          />
         )}
         {activeView === 'slowMovers' && (
-          <SlowMoversView data={inventoryData?.slowMovers} searchQuery={searchQuery} />
+          <SlowMoversView 
+            data={inventoryData?.slowMovers} 
+            searchQuery={searchQuery}
+            variantFilters={variantFilters}
+            onVariantFilterChange={setVariantFilters}
+          />
         )}
         {activeView === 'variants' && (
           <VariantAnalysisView data={inventoryData?.variantAnalysis} searchQuery={searchQuery} />
@@ -130,18 +142,26 @@ function InventoryInsights() {
   );
 }
 
-function SalesVelocityView({ data, searchQuery }) {
+function SalesVelocityView({ data, searchQuery, variantFilters, onVariantFilterChange }) {
   if (!data || data.length === 0) {
     return <p className="text-gray-500 text-center py-8">No sales velocity data available</p>;
   }
 
-  // Filter data based on search query
-  const filteredData = searchQuery
-    ? data.filter(item => 
-        item.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.variant && item.variant.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    : data;
+  // Filter data based on search query and variant filters
+  const filteredData = data.filter(item => {
+    // Apply search query filter
+    const matchesSearch = !searchQuery || 
+      item.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.variant && item.variant.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    // Apply variant filter (OR logic - show if any selected variant matches)
+    const matchesVariant = variantFilters.length === 0 || 
+      (item.variant && variantFilters.includes(item.variant));
+    
+    return matchesSearch && matchesVariant;
+  });
+
+  const totalCount = data.length;
 
   if (filteredData.length === 0) {
     return (
@@ -154,12 +174,24 @@ function SalesVelocityView({ data, searchQuery }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Top Products by Sales Velocity
-          {searchQuery && <span className="text-sm font-normal text-gray-500 ml-2">({filteredData.length} results)</span>}
-        </h3>
-        <span className="text-sm text-gray-500">Units sold per day</span>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Top Products by Sales Velocity
+          </h3>
+          <p className="text-sm text-gray-500 mt-1">
+            {variantFilters.length > 0 || searchQuery ? (
+              <>Showing {filteredData.length} of {totalCount} products</>
+            ) : (
+              <>Showing all {totalCount} products - Units sold per day</>
+            )}
+          </p>
+        </div>
+        <VariantFilter 
+          data={data}
+          onFilterChange={onVariantFilterChange}
+          className="sm:ml-auto"
+        />
       </div>
       
       <div className="overflow-x-auto">
@@ -231,7 +263,7 @@ function SalesVelocityView({ data, searchQuery }) {
   );
 }
 
-function SlowMoversView({ data, searchQuery }) {
+function SlowMoversView({ data, searchQuery, variantFilters, onVariantFilterChange }) {
   if (!data || data.length === 0) {
     return (
       <div className="text-center py-8">
@@ -241,31 +273,57 @@ function SlowMoversView({ data, searchQuery }) {
     );
   }
 
-  // Filter data based on search query
-  const filteredData = searchQuery
-    ? data.filter(item => 
-        item.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.variant && item.variant.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    : data;
+  // Filter data based on search query and variant filters
+  const filteredData = data.filter(item => {
+    // Apply search query filter
+    const matchesSearch = !searchQuery || 
+      item.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.variant && item.variant.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    // Apply variant filter (OR logic - show if any selected variant matches)
+    const matchesVariant = variantFilters.length === 0 || 
+      (item.variant && variantFilters.includes(item.variant));
+    
+    return matchesSearch && matchesVariant;
+  });
 
-  if (filteredData.length === 0) {
+  const totalCount = data.length;
+
+  if (filteredData.length === 0 && (searchQuery || variantFilters.length > 0)) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-500 mb-2">No results found for "{searchQuery}"</p>
-        <p className="text-sm text-gray-400">Try a different search term</p>
+        <p className="text-gray-500 mb-2">No results found</p>
+        <p className="text-sm text-gray-400">
+          {searchQuery && variantFilters.length > 0 
+            ? 'Try adjusting your search or variant filters'
+            : searchQuery 
+            ? 'Try a different search term'
+            : 'Try selecting different variants'}
+        </p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Slow-Moving Inventory
-          {searchQuery && <span className="text-sm font-normal text-gray-500 ml-2">({filteredData.length} results)</span>}
-        </h3>
-        <span className="text-sm text-gray-500">Needs attention</span>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Slow-Moving Inventory
+          </h3>
+          <p className="text-sm text-gray-500 mt-1">
+            {variantFilters.length > 0 || searchQuery ? (
+              <>Showing {filteredData.length} of {totalCount} slow movers</>
+            ) : (
+              <>Showing all {totalCount} slow movers - Needs attention</>
+            )}
+          </p>
+        </div>
+        <VariantFilter 
+          data={data}
+          onFilterChange={onVariantFilterChange}
+          className="sm:ml-auto"
+        />
       </div>
 
       <div className="grid gap-4">
