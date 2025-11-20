@@ -1042,7 +1042,8 @@ def validate_token(payload: dict = Depends(verify_token)):
 @app.get("/api/business-info")
 def get_business_info(payload: dict = Depends(verify_token)):
     """Get business name and basic info."""
-    return {"business_name": mock_data["business_name"]}
+    # Override with "Test Store" - original name still available in mock_data["business_name"]
+    return {"business_name": "Test Store"}
 
 @app.get("/api/transactions")
 def get_transactions(payload: dict = Depends(verify_token)):
