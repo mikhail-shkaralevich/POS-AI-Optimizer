@@ -367,9 +367,50 @@ Be conversational, insightful, and practical in your recommendations. If asked a
     return context
 
 # Helper functions for analytics calculations
+def get_data_cutoff_date(transactions: List[Dict], days: int = 120) -> datetime:
+    """
+    Calculate cutoff date based on the most recent date in the data.
+    Uses actual data date range instead of current date to handle historical data.
+    """
+    if not transactions:
+        return datetime.now() - timedelta(days=days)
+    
+    all_dates = []
+    for txn in transactions:
+        try:
+            txn_date = datetime.strptime(txn["timestamp"], "%Y-%m-%d %H:%M:%S")
+            all_dates.append(txn_date)
+        except:
+            continue
+    
+    if not all_dates:
+        return datetime.now() - timedelta(days=days)
+    
+    most_recent_date = max(all_dates)
+    return most_recent_date - timedelta(days=days)
+
+def get_sensor_cutoff_date(days: int = 120) -> datetime:
+    """
+    Calculate cutoff date based on the most recent date in sensor data.
+    Uses actual sensor data date range instead of current date to handle historical data.
+    """
+    all_dates = []
+    for entry in sensor_data["entries"]:
+        try:
+            entry_date = datetime.fromisoformat(entry["timestamp"]).replace(tzinfo=None)
+            all_dates.append(entry_date)
+        except:
+            continue
+    
+    if not all_dates:
+        return datetime.now().replace(tzinfo=None) - timedelta(days=days)
+    
+    most_recent_date = max(all_dates)
+    return most_recent_date - timedelta(days=days)
+
 def calculate_revenue(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
     """Calculate total revenue and daily breakdown."""
-    cutoff_date = datetime.now() - timedelta(days=days)
+    cutoff_date = get_data_cutoff_date(transactions, days)
     daily_revenue = defaultdict(float)
     total = 0
     
@@ -398,7 +439,7 @@ def calculate_revenue(transactions: List[Dict], days: int = 120) -> Dict[str, An
 
 def calculate_atv(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
     """Calculate Average Transaction Value."""
-    cutoff_date = datetime.now() - timedelta(days=days)
+    cutoff_date = get_data_cutoff_date(transactions, days)
     daily_atv = defaultdict(lambda: {"total": 0, "count": 0})
     
     # Group by transaction ID to avoid counting line items multiple times
@@ -444,7 +485,7 @@ def calculate_atv(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
 
 def calculate_customer_metrics(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
     """Calculate new vs returning customers."""
-    cutoff_date = datetime.now() - timedelta(days=days)
+    cutoff_date = get_data_cutoff_date(transactions, days)
     customer_first_seen = {}
     daily_customers = defaultdict(lambda: {"new": 0, "returning": 0})
     
@@ -682,7 +723,7 @@ def get_busiest_day(transactions: List[Dict]) -> str:
 
 def calculate_foot_traffic(days: int = 120) -> Dict[str, Any]:
     """Calculate foot traffic metrics from LiDAR sensor data."""
-    cutoff_date = datetime.now().replace(tzinfo=None) - timedelta(days=days)
+    cutoff_date = get_sensor_cutoff_date(days)
     daily_traffic = defaultdict(int)
     
     # Count entries from sensor data (direction=1 means entry)
@@ -802,7 +843,7 @@ def calculate_conversion_rate(transactions: List[Dict], days: int = 120) -> Dict
 
 def calculate_hourly_revenue(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
     """Calculate revenue broken down by hour of day."""
-    cutoff_date = datetime.now() - timedelta(days=days)
+    cutoff_date = get_data_cutoff_date(transactions, days)
     hourly_revenue = defaultdict(float)
     
     for txn in transactions:
@@ -830,7 +871,7 @@ def calculate_hourly_revenue(transactions: List[Dict], days: int = 120) -> Dict[
 
 def calculate_hourly_atv(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
     """Calculate ATV broken down by hour."""
-    cutoff_date = datetime.now() - timedelta(days=days)
+    cutoff_date = get_data_cutoff_date(transactions, days)
     hourly_atv = defaultdict(lambda: {"total": 0, "count": 0})
     unique_transactions = defaultdict(lambda: {"total": 0, "hour": None})
     
@@ -865,7 +906,7 @@ def calculate_hourly_atv(transactions: List[Dict], days: int = 120) -> Dict[str,
 
 def calculate_hourly_customers(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
     """Calculate new vs returning customers by hour."""
-    cutoff_date = datetime.now() - timedelta(days=days)
+    cutoff_date = get_data_cutoff_date(transactions, days)
     customer_first_seen = {}
     hourly_customers = defaultdict(lambda: {"new": 0, "returning": 0})
     
@@ -917,7 +958,7 @@ def calculate_hourly_customers(transactions: List[Dict], days: int = 120) -> Dic
 
 def calculate_hourly_foot_traffic(days: int = 120) -> Dict[str, Any]:
     """Calculate foot traffic by hour."""
-    cutoff_date = datetime.now().replace(tzinfo=None) - timedelta(days=days)
+    cutoff_date = get_sensor_cutoff_date(days)
     hourly_traffic = defaultdict(int)
     
     for entry in sensor_data["entries"]:
@@ -942,7 +983,7 @@ def calculate_hourly_foot_traffic(days: int = 120) -> Dict[str, Any]:
 
 def calculate_hourly_conversion(transactions: List[Dict], days: int = 120) -> Dict[str, Any]:
     """Calculate conversion rate by hour."""
-    cutoff_date = datetime.now().replace(tzinfo=None) - timedelta(days=days)
+    cutoff_date = get_data_cutoff_date(transactions, days).replace(tzinfo=None)
     
     # Get unique transactions per hour
     hourly_transactions = defaultdict(set)
