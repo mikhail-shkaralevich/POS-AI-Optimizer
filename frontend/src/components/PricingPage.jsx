@@ -1,26 +1,9 @@
 import React, { useState } from 'react';
 
 const PricingPage = () => {
-  const [hardwareOption, setHardwareOption] = useState('purchase'); // 'purchase' or 'lease'
+  const [hardwareOption, setHardwareOption] = useState('optout'); // 'optout', 'purchase' or 'lease'
 
   const tiers = [
-    {
-      name: 'Super Basic',
-      price: { monthly: 0, annual: 0 },
-      description: 'Perfect for getting started with foot traffic analytics',
-      badge: 'FREE FOREVER',
-      badgeColor: 'bg-green-100 text-green-800',
-      features: [
-        'Dashboard with conversion rate',
-        'Detailed foot traffic analytics',
-        'Email support',
-        'Basic visualizations',
-        'Weekly reports'
-      ],
-      cta: 'Get Started Free',
-      ctaStyle: 'bg-gray-600 hover:bg-gray-700',
-      popular: false
-    },
     {
       name: 'Basic',
       price: { monthly: 15, annual: 150 },
@@ -28,14 +11,16 @@ const PricingPage = () => {
       badge: 'BEST VALUE',
       badgeColor: 'bg-blue-100 text-blue-800',
       features: [
-        'Everything in Super Basic',
+        'Dashboard with conversion rate (hardware required)',
+        'Detailed foot traffic analytics (hardware required)',
         'Full POS integration',
         'Core analytics dashboard',
         'Advanced visualizations',
         'Daily automated reports',
         '2 AI prescriptive insights/month',
         'Missed opportunity analysis',
-        'Standard support'
+        'Standard support',
+        'Email support'
       ],
       cta: 'Start Free Trial',
       ctaStyle: 'bg-blue-600 hover:bg-blue-700',
@@ -86,15 +71,60 @@ const PricingPage = () => {
             </div>
             <div className="flex-1">
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                LiDAR Sensor Hardware
+                LiDAR Sensor Hardware <span className="text-sm font-normal text-gray-500">(Optional)</span>
               </h2>
               <p className="text-gray-600 mb-4">
-                Required for foot traffic analytics and conversion tracking
+                Add foot traffic analytics and conversion tracking to your plan
               </p>
             </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-3 gap-6">
+            {/* Opt-out Option */}
+            <div
+              onClick={() => setHardwareOption('optout')}
+              className={`p-6 rounded-xl border-2 cursor-pointer transition-all ${
+                hardwareOption === 'optout'
+                  ? 'border-blue-600 bg-blue-50 shadow-md'
+                  : 'border-gray-200 hover:border-blue-300'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold text-gray-900">Opt-out</h3>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  hardwareOption === 'optout' ? 'border-blue-600' : 'border-gray-300'
+                }`}>
+                  {hardwareOption === 'optout' && (
+                    <div className="w-3 h-3 rounded-full bg-blue-600"></div>
+                  )}
+                </div>
+              </div>
+              <div className="mb-3">
+                <span className="text-3xl font-bold text-gray-900">$0</span>
+                <span className="text-gray-600 ml-2">no hardware</span>
+              </div>
+              <ul className="space-y-2 text-sm text-gray-700">
+                <li className="flex items-start">
+                  <svg className="w-5 h-5 text-red-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                  </svg>
+                  No foot traffic analytics
+                </li>
+                <li className="flex items-start">
+                  <svg className="w-5 h-5 text-red-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                  </svg>
+                  No conversion rate tracking
+                </li>
+                <li className="flex items-start">
+                  <svg className="w-5 h-5 text-red-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                  </svg>
+                  POS analytics only
+                </li>
+              </ul>
+            </div>
+
             {/* Purchase Option */}
             <div
               onClick={() => setHardwareOption('purchase')}
@@ -188,12 +218,12 @@ const PricingPage = () => {
         </div>
 
         {/* Pricing Tiers */}
-        <div className="grid md:grid-cols-3 gap-8 mb-12">
+        <div className="grid md:grid-cols-2 gap-8 mb-12 max-w-5xl mx-auto">
           {tiers.map((tier, index) => (
             <div
               key={index}
               className={`bg-white rounded-2xl shadow-lg overflow-hidden transition-all hover:shadow-xl ${
-                tier.popular ? 'ring-2 ring-blue-600 transform scale-105' : ''
+                tier.popular ? 'ring-2 ring-blue-600 transform md:scale-105' : ''
               }`}
             >
               {/* Card Header */}
@@ -210,30 +240,23 @@ const PricingPage = () => {
                 
                 {/* Price */}
                 <div className="mb-4">
-                  {tier.price.monthly === 0 ? (
-                    <div>
-                      <span className="text-4xl font-bold text-gray-900">Free</span>
-                      <span className="text-gray-600 ml-2">forever</span>
+                  <div>
+                    <div className="flex items-baseline mb-2">
+                      <span className="text-4xl font-bold text-gray-900">
+                        ${tier.price.monthly}
+                      </span>
+                      <span className="text-gray-600 ml-2">/month</span>
                     </div>
-                  ) : (
-                    <div>
-                      <div className="flex items-baseline mb-2">
-                        <span className="text-4xl font-bold text-gray-900">
-                          ${tier.price.monthly}
-                        </span>
-                        <span className="text-gray-600 ml-2">/month</span>
-                      </div>
-                      <div className="text-sm">
-                        <span className="text-gray-600">or </span>
-                        <span className="font-semibold text-gray-900">
-                          ${tier.price.annual}/year
-                        </span>
-                        <span className="ml-2 text-green-600 font-semibold">
-                          (Save ${tier.price.monthly * 12 - tier.price.annual}!)
-                        </span>
-                      </div>
+                    <div className="text-sm">
+                      <span className="text-gray-600">or </span>
+                      <span className="font-semibold text-gray-900">
+                        ${tier.price.annual}/year
+                      </span>
+                      <span className="ml-2 text-green-600 font-semibold">
+                        (Save ${tier.price.monthly * 12 - tier.price.annual}!)
+                      </span>
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* CTA Button */}
@@ -278,7 +301,7 @@ const PricingPage = () => {
             <div>
               <h3 className="font-semibold text-gray-900 mb-2">Do I need the LiDAR sensor?</h3>
               <p className="text-gray-600 text-sm">
-                Yes, the LiDAR sensor is required for foot traffic analytics and conversion tracking. However, if you only need POS analytics, the Super Basic tier works without the sensor.
+                The LiDAR sensor is optional. It adds foot traffic analytics and conversion tracking capabilities. You can still use all POS analytics features without it.
               </p>
             </div>
             <div>
@@ -304,7 +327,6 @@ const PricingPage = () => {
 
         {/* Trust Indicators */}
         <div className="text-center">
-          <p className="text-gray-600 mb-4">Trusted by small businesses nationwide</p>
           <div className="flex items-center justify-center gap-8 text-sm text-gray-500">
             <div className="flex items-center">
               <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
