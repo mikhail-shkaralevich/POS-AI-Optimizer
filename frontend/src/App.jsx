@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 import Dashboard from './components/Dashboard';
 import PricingPage from './components/PricingPage';
+import ContactUs from './components/ContactUs';
 import Login from './components/Login';
 import axios from 'axios';
 import { API_BASE_URL } from './config/api';
@@ -103,6 +104,12 @@ function App() {
                   >
                     Pricing
                   </Link>
+                  <Link
+                    to="/contact"
+                    className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+                  >
+                    Contact Us
+                  </Link>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
@@ -127,6 +134,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/contact" element={<ContactUs />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
