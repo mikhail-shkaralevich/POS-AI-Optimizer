@@ -96,34 +96,28 @@ function App() {
                 <div className="hidden md:flex space-x-4">
                   <Link
                     to="/"
-                    className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+                    className="px-3 py-2 rounded-md text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 hover:text-blue-800 transition-colors"
                   >
                     Dashboard
                   </Link>
                   <Link
                     to="/pricing"
-                    className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+                    className="px-3 py-2 rounded-md text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 hover:text-purple-800 transition-colors"
                   >
                     Pricing
                   </Link>
                   <Link
                     to="/contact"
-                    className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+                    className="px-3 py-2 rounded-md text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 hover:text-green-800 transition-colors"
                   >
                     Contact Us
                   </Link>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
-                <Link
-                  to="/pricing"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-                >
-                  View Plans
-                </Link>
                 <button
                   onClick={handleLogout}
-                  className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                  className="text-gray-700 bg-gray-100 hover:bg-gray-200 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                 >
                   Logout
                 </button>

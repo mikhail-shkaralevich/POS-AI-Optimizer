@@ -9,7 +9,10 @@ function Header({ businessName }) {
             <h1 className="text-2xl font-bold text-gray-900">{businessName}</h1>
           </div>
           <div className="flex items-center space-x-4">
-            <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors">
+            <button 
+              disabled 
+              className="px-4 py-2 text-sm font-medium text-gray-400 bg-gray-100 rounded-md cursor-not-allowed opacity-60"
+            >
               Online Tab
             </button>
           </div>
