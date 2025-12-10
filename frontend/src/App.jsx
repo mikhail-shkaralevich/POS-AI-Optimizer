@@ -6,6 +6,7 @@ import ContactUs from './components/ContactUs';
 import Login from './components/Login';
 import axios from 'axios';
 import { API_BASE_URL } from './config/api';
+import logo from './assets/logo.PNG';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -88,8 +89,9 @@ function App() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
               <div className="flex items-center space-x-8">
-                <Link to="/" className="text-xl font-bold text-gray-900">
-                  StoreScope
+                <Link to="/" className="flex items-center space-x-3">
+                  <img src={logo} alt="StoreScope Logo" className="h-12 w-auto" />
+                  <span className="text-xl font-bold text-gray-900">StoreScope</span>
                 </Link>
                 <div className="hidden md:flex space-x-4">
                   <Link
