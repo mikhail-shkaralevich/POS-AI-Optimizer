@@ -18,29 +18,14 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 import time
 from threading import Lock
-from jose import JWTError, jwt
-import secrets
 
 # Load environment variables
 load_dotenv()
-
-# JWT Configuration
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", secrets.token_urlsafe(32))
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_HOURS = 24
-
-# Security scheme
-security = HTTPBearer()
 
 # Rate limiting for API calls
 api_call_lock = Lock()
 last_api_call_time = 0
 MIN_API_CALL_INTERVAL = 2.0  # Minimum 2 seconds between API calls
-
-# Rate limiting for login attempts
-login_attempts = defaultdict(list)
-MAX_LOGIN_ATTEMPTS = 5
-LOGIN_WINDOW_MINUTES = 15
 
 # Cache for generated insights
 insights_cache = {}
@@ -222,55 +207,7 @@ class ChatMessage(BaseModel):
 class ChatResponse(BaseModel):
     response: str
 
-class SecurityCodeRequest(BaseModel):
-    code: str
 
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str
-    expires_in: int
-
-# JWT Helper Functions
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    """Create a JWT access token."""
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
-    
-    to_encode.update({"exp": expire, "iat": datetime.utcnow()})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Verify JWT token and return payload."""
-    try:
-        token = credentials.credentials
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        
-        # Check if token has expired
-        exp = payload.get("exp")
-        if exp is None:
-            raise HTTPException(status_code=401, detail="Invalid token: missing expiration")
-        
-        if datetime.now(timezone.utc) > datetime.fromtimestamp(exp, tz=timezone.utc):
-            raise HTTPException(status_code=401, detail="Token has expired")
-        
-        return payload
-    except JWTError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid authentication credentials: {str(e)}")
-    except Exception as e:
-        raise HTTPException(status_code=401, detail="Could not validate credentials")
-
-def get_client_ip(x_forwarded_for: Optional[str] = Header(None), 
-                  x_real_ip: Optional[str] = Header(None)) -> str:
-    """Extract client IP from headers."""
-    if x_forwarded_for:
-        return x_forwarded_for.split(',')[0].strip()
-    if x_real_ip:
-        return x_real_ip
-    return "unknown"
 
 # AI Context Generator
 def generate_business_context() -> str:
@@ -1050,62 +987,19 @@ def read_root():
     """Health check endpoint."""
     return {"status": "ok", "message": "Retail Dashboard API is running"}
 
-@app.post("/api/auth/verify", response_model=TokenResponse)
-def verify_security_code(request: SecurityCodeRequest, client_ip: str = Depends(get_client_ip)):
-    """Verify the security code and return JWT token."""
-    expected_code = os.getenv("SECURITY_CODE", "")
-    
-    if not expected_code:
-        raise HTTPException(status_code=500, detail="Security code not configured on server")
-    
-    # Rate limiting: check login attempts
-    now = datetime.now()
-    attempts = login_attempts[client_ip]
-    # Remove attempts older than the window
-    attempts = [t for t in attempts if (now - t).seconds < LOGIN_WINDOW_MINUTES * 60]
-    login_attempts[client_ip] = attempts
-    
-    if len(attempts) >= MAX_LOGIN_ATTEMPTS:
-        raise HTTPException(
-            status_code=429, 
-            detail=f"Too many login attempts. Please try again in {LOGIN_WINDOW_MINUTES} minutes."
-        )
-    
-    # Verify security code
-    if request.code != expected_code:
-        # Record failed attempt
-        login_attempts[client_ip].append(now)
-        raise HTTPException(status_code=401, detail="Invalid security code")
-    
-    # Clear failed attempts on successful login
-    login_attempts[client_ip] = []
-    
-    # Create JWT token
-    access_token_expires = timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
-    access_token = create_access_token(
-        data={"sub": "dashboard_user", "type": "access"},
-        expires_delta=access_token_expires
-    )
-    
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "expires_in": ACCESS_TOKEN_EXPIRE_HOURS * 3600  # in seconds
-    }
-
 @app.get("/api/auth/validate")
-def validate_token(payload: dict = Depends(verify_token)):
+def validate_token():
     """Validate if token is still valid."""
-    return {"valid": True, "user": payload.get("sub")}
+    return {"valid": True, "user": "guest"}
 
 @app.get("/api/business-info")
-def get_business_info(payload: dict = Depends(verify_token)):
+def get_business_info():
     """Get business name and basic info."""
     # Override with "Test Store" - original name still available in mock_data["business_name"]
     return {"business_name": "Test Store"}
 
 @app.get("/api/transactions")
-def get_transactions(payload: dict = Depends(verify_token)):
+def get_transactions():
     """Get raw transaction data for custom metrics."""
     transactions = mock_data["transactions"]
     return {
@@ -1114,7 +1008,7 @@ def get_transactions(payload: dict = Depends(verify_token)):
     }
 
 @app.get("/api/metrics")
-def get_metrics(payload: dict = Depends(verify_token)):
+def get_metrics():
     """Get all dashboard metrics."""
     transactions = mock_data["transactions"]
     
@@ -1146,7 +1040,7 @@ def get_metrics(payload: dict = Depends(verify_token)):
     }
 
 @app.get("/api/metrics/hourly")
-def get_hourly_metrics(payload: dict = Depends(verify_token)):
+def get_hourly_metrics():
     """Get hourly breakdown of all metrics for detailed analysis."""
     transactions = mock_data["transactions"]
     
@@ -1159,24 +1053,24 @@ def get_hourly_metrics(payload: dict = Depends(verify_token)):
     }
 
 @app.get("/api/insights")
-def get_insights(payload: dict = Depends(verify_token)):
+def get_insights():
     """Get AI-generated insights."""
     transactions = mock_data["transactions"]
     return {"insights": generate_insights(transactions)}
 
 @app.get("/api/comparisons")
-def get_comparisons(payload: dict = Depends(verify_token)):
+def get_comparisons():
     """Get comparison reports."""
     return {"comparisons": generate_comparisons()}
 
 @app.get("/api/prescriptions")
-def get_prescriptions(payload: dict = Depends(verify_token)):
+def get_prescriptions():
     """Get prescriptive recommendations."""
     transactions = mock_data["transactions"]
     return {"prescriptions": generate_prescriptions(transactions)}
 
 @app.post("/api/generate-insights")
-def generate_ai_insights(request: dict, payload: dict = Depends(verify_token)):
+def generate_ai_insights(request: dict):
     """Generate AI-powered insights using Claude API with rate limiting and caching."""
     global last_api_call_time
     
@@ -1334,7 +1228,7 @@ NOW ANALYZE THE DATA AND GENERATE FRESH, SPECIFIC INSIGHTS IN VALID JSON FORMAT.
         }
 
 @app.get("/api/inventory-insights")
-def get_inventory_insights(payload: dict = Depends(verify_token)):
+def get_inventory_insights():
     """Get inventory insights including sales velocity, slow movers, and variant analysis."""
     try:
         transactions = mock_data["transactions"]
@@ -1524,7 +1418,7 @@ def get_inventory_insights(payload: dict = Depends(verify_token)):
         raise HTTPException(status_code=500, detail=f"Failed to generate inventory insights: {str(e)}")
 
 @app.post("/api/chat")
-def chat(message: ChatMessage, payload: dict = Depends(verify_token)):
+def chat(message: ChatMessage):
     """Handle chatbot queries using Claude AI with business context."""
     try:
         # Check if Anthropic client is initialized
@@ -1562,7 +1456,7 @@ def chat(message: ChatMessage, payload: dict = Depends(verify_token)):
         )
 
 @app.post("/api/upload/shopify")
-async def upload_shopify_data(file: UploadFile = File(...), payload: dict = Depends(verify_token)):
+async def upload_shopify_data(file: UploadFile = File(...)):
     """Upload Shopify CSV data file."""
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="File must be a CSV file")
@@ -1591,7 +1485,7 @@ async def upload_shopify_data(file: UploadFile = File(...), payload: dict = Depe
         raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")
 
 @app.post("/api/upload/sensor")
-async def upload_sensor_data(file: UploadFile = File(...), payload: dict = Depends(verify_token)):
+async def upload_sensor_data(file: UploadFile = File(...)):
     """Upload sensor JSON data file."""
     if not file.filename.endswith('.json'):
         raise HTTPException(status_code=400, detail="File must be a JSON file")

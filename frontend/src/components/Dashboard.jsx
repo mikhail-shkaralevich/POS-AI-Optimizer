@@ -6,7 +6,6 @@ import InsightsSection from './InsightsSection';
 import ComparisonsCard from './ComparisonsCard';
 import OtherMetricsCard from './OtherMetricsCard';
 import ChatBot from './ChatBot';
-import DataUpload from './DataUpload';
 import DashboardCustomizer from './DashboardCustomizer';
 import TopProductsCard from './metrics/TopProductsCard';
 import HourlyRevenueCard from './metrics/HourlyRevenueCard';
@@ -86,18 +85,6 @@ function Dashboard() {
       <Header businessName={businessName} />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Data Upload Section */}
-        <DataUpload onUploadSuccess={fetchData} />
-
-        {/* Data Range Display */}
-        {metrics?.date_range && (
-          <div className="mb-6 text-center">
-            <p className="text-sm text-gray-600">
-              Data Period: <span className="font-semibold text-gray-800">{metrics.date_range}</span>
-            </p>
-          </div>
-        )}
-
         {/* Metrics Grid - Conditionally Render */}
         {(activeWidgets.includes('revenue') || activeWidgets.includes('atv') || activeWidgets.includes('customers') || activeWidgets.includes('footTraffic') || activeWidgets.includes('conversion')) && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
