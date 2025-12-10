@@ -79,12 +79,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Helper function to get data directory
+def get_data_directory():
+    """Get the data directory path, checking Railway volume first."""
+    # Check for Railway volume mount path
+    volume_path = os.environ.get('VOLUME_MOUNT_PATH', '/data')
+    
+    # If volume path exists and is accessible, use it
+    if os.path.exists(volume_path) and os.path.isdir(volume_path):
+        print(f"[INFO] Using Railway volume at: {volume_path}")
+        return volume_path
+    
+    # Otherwise, fall back to local data directory
+    local_data_path = os.path.join(os.path.dirname(__file__), "data")
+    print(f"[INFO] Using local data directory at: {local_data_path}")
+    return local_data_path
+
 # Load real data from Shopify and sensor
 def load_shopify_data():
     """Load transaction data from Shopify CSV file."""
     import csv
     
-    data_path = os.path.join(os.path.dirname(__file__), "data", "shopify_data.csv")
+    data_dir = get_data_directory()
+    data_path = os.path.join(data_dir, "shopify_data.csv")
     transactions = []
     
     print("[INFO] Loading Shopify data...")
@@ -144,7 +161,8 @@ def load_shopify_data():
 
 def load_sensor_data():
     """Load sensor foot traffic data from JSON file."""
-    data_path = os.path.join(os.path.dirname(__file__), "data", "sensor_data.json")
+    data_dir = get_data_directory()
+    data_path = os.path.join(data_dir, "sensor_data.json")
     
     print("[INFO] Loading sensor data...")
     
@@ -1550,8 +1568,13 @@ async def upload_shopify_data(file: UploadFile = File(...), payload: dict = Depe
         raise HTTPException(status_code=400, detail="File must be a CSV file")
     
     try:
-        # Save the uploaded file
-        data_path = os.path.join(os.path.dirname(__file__), "data", "shopify_data.csv")
+        # Save the uploaded file to data directory (volume or local)
+        data_dir = get_data_directory()
+        data_path = os.path.join(data_dir, "shopify_data.csv")
+        
+        # Ensure directory exists
+        os.makedirs(data_dir, exist_ok=True)
+        
         with open(data_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
@@ -1574,8 +1597,13 @@ async def upload_sensor_data(file: UploadFile = File(...), payload: dict = Depen
         raise HTTPException(status_code=400, detail="File must be a JSON file")
     
     try:
-        # Save the uploaded file
-        data_path = os.path.join(os.path.dirname(__file__), "data", "sensor_data.json")
+        # Save the uploaded file to data directory (volume or local)
+        data_dir = get_data_directory()
+        data_path = os.path.join(data_dir, "sensor_data.json")
+        
+        # Ensure directory exists
+        os.makedirs(data_dir, exist_ok=True)
+        
         with open(data_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
